@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>観戦くん by Danno (分析くん 観戦Ver.)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght=500;600;700&display=swap');
+
+        :root {
+            /* A校カラー：ティールブルー（青緑）× 銅 */
+            --bg-base: #0a2a35;
+            --bg-panel: #10495c;
+            --bg-element: #135c73;
+            --border-color: #1a7f9e;
+            --text-main: #f0fbff;
+            --text-sub: #7fd4ee;
+            --accent: #f0a860;
+
+            --success: #10b981;
+            --save: #0284c7;
+            --danger: #475569;
+            --miss-color: #64748b;
+        }
+
+        /* B校カラー：スレートグレー × 銅 */
+        body.theme-enemy {
+            --bg-base: #212a30;
+            --bg-panel: #323d45;
+            --bg-element: #3e4b55;
+            --border-color: #5d6d78;
+            --text-main: #f8fafc;
+            --text-sub: #b3c2cc;
+            --accent: #f0a860;
+        }
+
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            background-color: var(--bg-base); 
+            color: var(--text-main);
+            margin: 0; padding: 0;
+            height: 100vh; overflow: hidden;
+            display: flex; transition: background-color 0.3s;
+        }
+        .font-score { font-family: 'Oswald', sans-serif; }
+
+        /* 左サイドバー */
+        .sidebar { width: 60px; background-color: #082430; display: flex; flex-direction: column; align-items: center; padding-top: 15px; gap: 10px; box-shadow: 2px 0 5px rgba(0,0,0,0.3); z-index: 10; flex-shrink: 0; }
+        .tab-btn { width: 100%; padding: 25px 0; writing-mode: vertical-rl; text-orientation: upright; font-size: 1.1rem; font-weight: bold; color: #7d94a0; background: transparent; border: none; cursor: pointer; transition: all 0.2s; letter-spacing: 4px; }
+        .tab-btn.active { background: var(--bg-base); color: var(--text-main); border-radius: 10px 0 0 10px; margin-left: 8px; width: calc(100% - 8px); }
+
+        /* メイン表示エリア */
+        .main-container { flex: 1; padding: 12px; height: 100vh; display: none; gap: 15px; }
+        .main-container.active-view { display: flex; }
+        
+        /* 記録モード用のカラム */
+        .left-col { flex: 1.1; display: flex; flex-direction: column; max-width: 520px; }
+        .right-col { flex: 1.3; background-color: transparent; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+
+        /* タイマー・対戦校・リアルタイムスコア */
+        .match-meta { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+        .match-meta input { flex: 1; min-width: 50px; background: var(--bg-panel); border: 1px solid var(--border-color); color: var(--text-main); padding: 6px; border-radius: 6px; font-size: 0.9rem; }
+        .score-box-mini { background: #072028; padding: 4px 8px; border-radius: 6px; border: 1px solid #35606e; font-size: 1.1rem; font-weight: bold; color: var(--accent); white-space: nowrap; letter-spacing: 1px; }
+        .timer-box { display: flex; align-items: center; gap: 4px; background: #072028; padding: 4px 8px; border-radius: 6px; border: 1px solid #35606e; flex-shrink: 0; }
+        #timer-display { font-size: 1.3rem; font-weight: bold; color: #f59e0b; font-family: monospace; }
+        .timer-btn { background: transparent; border: 1px solid #f59e0b; color: #f59e0b; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+        .timer-btn.running { background: #f59e0b; color: black; }
+
+        /* 対戦校ボタン（タップでピッカーを開く） */
+        .opponent-btn { flex: 1; min-width: 50px; background: var(--bg-panel); border: 1px dashed var(--border-color); color: var(--text-sub); padding: 6px 8px; border-radius: 6px; font-size: 0.9rem; font-weight: bold; cursor: pointer; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .opponent-btn.has-value { border-style: solid; border-color: var(--accent); color: var(--accent); }
+
+        /* 対戦校ピッカー モーダル */
+        .opp-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .opp-modal { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; padding: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+        .opp-modal-head { display: flex; justify-content: space-between; align-items: center; font-size: 1.1rem; font-weight: bold; color: var(--accent); margin-bottom: 4px; }
+        .opp-close { background: transparent; border: none; color: var(--text-sub); font-size: 1.8rem; line-height: 1; cursor: pointer; padding: 0 6px; }
+        .opp-section-label { font-size: 0.8rem; font-weight: bold; color: var(--text-sub); margin: 14px 0 6px; display: flex; justify-content: space-between; align-items: center; }
+        .opp-cat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .opp-cat { background: var(--bg-element); border: 1px solid var(--border-color); color: var(--text-main); padding: 12px 6px; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; transition: all 0.15s; }
+        .opp-cat.active { background: var(--accent); color: var(--bg-base); border-color: var(--accent); }
+        .opp-chips { display: flex; flex-wrap: wrap; gap: 8px; min-height: 44px; }
+        .opp-chip { background: var(--bg-element); border: 1px solid var(--border-color); color: var(--text-main); padding: 12px 14px; border-radius: 22px; font-size: 0.95rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: transform 0.1s; }
+        .opp-chip:active { transform: scale(0.95); }
+        .opp-chip .del { background: var(--danger); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .opp-empty { font-size: 0.82rem; color: var(--text-sub); padding: 10px 2px; }
+        .opp-direct-row { display: flex; gap: 6px; }
+        .opp-direct-row input { flex: 1; background: var(--bg-base); border: 1px solid var(--border-color); color: var(--text-main); padding: 11px; border-radius: 6px; font-size: 0.95rem; }
+        .opp-direct-btn { background: var(--success); border: none; color: white; padding: 11px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; white-space: nowrap; }
+        .opp-edit-toggle { background: transparent; border: 1px solid var(--border-color); color: var(--text-sub); padding: 4px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
+        .opp-edit-toggle.active { border-color: var(--accent); color: var(--accent); }
+        .opp-add-preset { width: 100%; background: transparent; border: 1px dashed var(--accent); color: var(--accent); padding: 11px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 8px; font-size: 0.85rem; }
+
+        /* チーム・局面選択 */
+        .always-team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 8px; }
+        .team-block { display: flex; flex-direction: column; gap: 4px; }
+        .team-block-label { font-size: 0.75rem; font-weight: bold; text-align: center; color: var(--text-sub); }
+        .sit-buttons-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+        .btn-sit { background: var(--bg-element); border: 1px solid var(--border-color); color: var(--text-main); padding: 8px 2px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.2s;}
+        .btn-sit:active { transform: scale(0.96); }
+        .btn-sit.active-self { background: #0284c7; color: white; border-color: #38bdf8; box-shadow: inset 0 0 8px rgba(255,255,255,0.3); }
+        .btn-sit.active-enemy { background: #64748b; color: white; border-color: #94a3b8; box-shadow: inset 0 0 8px rgba(255,255,255,0.3); }
+        .btn-quick-turnover { grid-column: span 2; background: var(--danger); border: 1px solid #94a3b8; color: white; padding: 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; cursor: pointer; text-align: center; margin-top: 4px; transition: all 0.2s;}
+        .btn-quick-turnover:active { transform: scale(0.98); }
+
+        /* 履歴・ステップ */
+        .history-area { background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 10px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+        .history-title { font-size: 0.75rem; font-weight: bold; color: var(--text-sub); white-space: nowrap; }
+        .history-list { flex: 1; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+        .history-list::-webkit-scrollbar { display: none; }
+        .history-chip { background: var(--bg-element); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .btn-del-history { background: #e11d48; color: white; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-undo-action { background: var(--danger); border: 1px solid #94a3b8; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; white-space: nowrap; }
+
+        .step-chips { display: flex; gap: 6px; margin-bottom: 8px; }
+        .chip { flex: 1; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 8px; text-align: left; cursor: pointer; opacity: 0.5; transition: all 0.2s;}
+        .chip.active { border-color: var(--accent); background: var(--bg-element); opacity: 1; box-shadow: inset 0 0 5px rgba(240,168,96,0.28);}
+        .chip.clickable { opacity: 0.9; }
+        .chip-label { font-size: 0.7rem; color: var(--text-sub); }
+        .chip-value { font-size: 0.9rem; font-weight: bold; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;}
+
+        /* 入力ステージ */
+        .input-stage { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; flex: 1; display: flex; flex-direction: column; justify-content: flex-start; overflow: hidden; }
+        .step-view { display: none; height: 100%; flex-direction: column; }
+        .step-view.active { display: flex; }
+        .stage-title { font-size: 1rem; font-weight: bold; color: var(--text-sub); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;}
+        
+        .stage-layout-combined { display: flex; gap: 12px; flex: 1; min-height: 0; align-items: stretch; }
+        .combined-panel { flex: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 10px; }
+        .panel-sub-title { font-size: 0.85rem; font-weight: bold; color: var(--text-main); margin-bottom: 8px; border-left: 3px solid var(--accent); padding-left: 6px; }
+
+        #player-buttons { display: flex !important; flex-wrap: wrap; gap: 6px; width: 100%; overflow-y: auto; align-content: flex-start; padding-bottom: 10px;}
+        #player-buttons .btn-player { flex: 1 1 calc(16% - 6px); min-width: 70px; padding: 14px 4px; }
+        
+        .btn { background: var(--bg-element); border: 1px solid var(--border-color); color: var(--text-main); padding: 12px 6px; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; text-anchor: middle; text-align: center; transition: all 0.2s;}
+        .btn:active { transform: scale(0.96); }
+        .btn.active { background: var(--accent); color: var(--bg-base); border-color: var(--accent); }
+        
+        .btn-res-goal { background: var(--success); border-color: var(--success); }
+        .btn-res-save { background: var(--save); border-color: var(--save); }
+        .btn-res-miss { background: var(--danger); border-color: var(--border-color); }
+
+        /* SVG */
+        .svg-court-container { width: 100%; max-height: 180px; margin: 0 auto; display: block; flex: 1; }
+        .court-slice { fill: #135c73; stroke: #0a2a35; stroke-width: 2.5; cursor: pointer; transition: all 0.2s; }
+        .court-slice:hover { fill: #115e59; }
+        .court-slice.active-slice { fill: var(--accent) !important; stroke: white; }
+        .court-text { fill: var(--text-main); font-size: 13px; font-weight: bold; pointer-events: none; text-anchor: middle; dominant-baseline: middle; }
+
+        .svg-goal-container { width: 100%; max-width: 100%; max-height: 180px; margin: 0 auto; display: block; flex: 1;}
+        .svg-rect { fill: var(--bg-element); stroke: var(--bg-base); stroke-width: 2; cursor: pointer; transition: 0.15s; opacity: 0.8;}
+        .svg-rect.active-rect { fill: var(--accent) !important; stroke: white; opacity: 1; }
+
+        /* 右パネル（ダッシュボード）レイアウト */
+        .dashboard-top-row { display: flex; gap: 10px; height: 35%; flex-shrink: 0; }
+        .dashboard-card { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; overflow: hidden; flex: 1; }
+        
+        .insight-list { display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; }
+        .insight-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 6px 0; }
+        .insight-item:last-child { border-bottom: none; }
+        .rank-num { color: var(--accent); font-weight: bold; margin-right: 6px; font-family: 'Oswald'; }
+
+        .stat-bar-container { display: flex; height: 14px; border-radius: 6px; overflow: hidden; margin: 8px 0; background: var(--bg-base);}
+        .stat-bar-success { background: var(--success); }
+        .stat-bar-fail { background: var(--save); }
+        .stat-bar-miss { background: var(--danger); }
+        .stat-legend { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-main); }
+
+        /* 動的ヒートマップエリア */
+        .dashboard-heatmap-area { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .heatmap-flex-container { display: flex; gap: 12px; flex: 1; min-height: 0; }
+        .heatmap-col { flex: 1; display: flex; flex-direction: column; }
+        
+        .mini-heatmap-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; flex: 1; min-height: 0; background: var(--bg-base); border: 2px solid var(--accent); border-radius: 6px; padding: 2px; }
+        .mini-court-heatmap { width: 100%; height: 100%; flex: 1; min-height: 0; background: var(--bg-base); border: 2px solid var(--accent); border-radius: 6px; }
+        .mini-heat-cell { background: var(--bg-element); color: var(--text-main); font-size: 0.6rem; font-weight: bold; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 1px solid var(--border-color); line-height: 1.15; transition: all 0.3s;}
+        .mini-heat-cell .num { font-size: 0.55rem; color: var(--accent); margin-top: 1px; }
+        .mini-heat-cell.outer { font-size: 0.5rem; background: rgba(30,41,59,0.6); color: var(--text-sub); }
+        .mini-heat-cell.outer .num { color: #cbd5e1; }
+
+        /* 本格分析モード用カラム構成 */
+        .analysis-full-view { flex: 1; display: flex; gap: 15px; height: 100%; overflow: hidden; }
+        .analysis-left { flex: 1.2; display: flex; flex-direction: column; gap: 12px; height: 100%; }
+        .analysis-right { flex: 1; display: flex; flex-direction: column; gap: 12px; height: 100%; overflow: hidden; }
+        
+        .table-wrapper { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+        .table-inner-scroll { flex: 1; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--border-color); }
+        th { background-color: rgba(0,0,0,0.5); color: var(--text-sub); position: sticky; top: 0; z-index: 1; }
+        .rate-high { color: #10b981; font-weight: bold; }
+        .rate-low { color: #f43f5e; font-weight: bold; }
+
+        .running-score-wrapper { flex: 1; min-height: 0; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(0,0,0,0.15); }
+
+        /* モーダル・トースト・ドラッグUI */
+        .modal-overlay { position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.8); z-index: 1000; display: none; justify-content: center; align-items: center; }
+        .modal-overlay.show { display: flex; }
+        .modal-content { background: var(--bg-panel); border: 1px solid var(--border-color); padding: 20px; border-radius: 10px; width: 90%; max-width: 450px; }
+        .roster-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px; max-height: 50vh; overflow-y: auto;}
+        .roster-item { background: var(--bg-element); padding: 8px; text-align: center; border-radius: 4px; position: relative; border: 1px solid var(--border-color); transition: background-color 0.2s, opacity 0.2s;}
+        .roster-del { position: absolute; top: -6px; right: -6px; background: #e11d48; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 14px; font-weight:bold; cursor: pointer; border:none; display:flex; justify-content:center; align-items:center;}
+        .toast { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--bg-base); padding: 8px 16px; border-radius: 20px; font-size: 1rem; font-weight: bold; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 100;}
+        .toast.show { opacity: 1; }
+        
+        .roster-item[draggable="true"] { cursor: grab; touch-action: none; }
+        .roster-item.dragging { opacity: 0.4; }
+        .roster-item.drag-over { border: 2px dashed var(--accent); background: rgba(240,168,96,0.28); }
+
+        /* ===== 選手ソースバー（記録画面 STEP1）＆ メンバー表切替 ===== */
+        .player-source-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .psb-label { font-size: 0.85rem; color: var(--text-sub, #94a3b8); font-weight: bold; }
+        .psb-select { padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-panel); color: var(--text-main); font-size: 0.9rem; font-weight: bold; }
+        #roster-context { margin: 4px 0 14px; }
+        .ros-ctx-title { font-size: 0.9rem; color: var(--text-main); margin-bottom: 8px; font-weight: bold; }
+        .ros-preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .ros-preset-chip { padding: 6px 12px; border-radius: 16px; border: 1px solid var(--border-color); background: var(--bg-element); color: var(--text-main); font-size: 0.85rem; cursor: pointer; }
+        .ros-preset-chip.active { background: var(--accent); color: var(--bg-base); border-color: var(--accent); font-weight: bold; }
+        .ros-preset-add { padding: 6px 12px; border-radius: 16px; border: 1px dashed var(--accent); background: none; color: var(--accent); font-size: 0.85rem; cursor: pointer; font-weight: bold; }
+        .ros-preset-tools { display: flex; gap: 10px; }
+        .ros-preset-tools button { background: none; border: none; color: var(--accent); font-size: 0.8rem; cursor: pointer; text-decoration: underline; padding: 0; }
+        .player-empty-hint { font-size: 0.85rem; color: var(--text-sub, #94a3b8); padding: 10px 0; }
+
+        /* ===== スマホ縦画面 対応（横幅640px以下） ===== */
+        /* iPad/PCの「スクロールしない横並び固定」レイアウトを、
+           スマホでは「縦に積んで画面全体をスクロール」に切り替える。 */
+        @media (max-width: 640px) {
+            body { height: auto; min-height: 100vh; overflow-x: hidden; overflow-y: auto; }
+
+            /* 左タブは細く・上に固定して常に見えるように */
+            .sidebar { position: sticky; top: 0; align-self: flex-start; width: 46px; height: 100vh; padding-top: 8px; gap: 6px; }
+            .tab-btn { padding: 14px 0; font-size: 1rem; letter-spacing: 2px; }
+
+            /* 各ビューを縦積み＋高さ自動（固定100vhをやめる） */
+            .main-container { height: auto; min-height: 100vh; padding: 8px; gap: 12px; min-width: 0; }
+            .main-container.active-view { flex-direction: column; }
+
+            /* --- 記録画面 --- */
+            .left-col, .right-col { max-width: none; flex: none; width: 100%; overflow: visible; }
+            .match-meta { flex-wrap: wrap; }
+            .input-stage { flex: none; overflow: visible; }
+            .step-view.active { height: auto; }
+            /* 選手・コート・ゴールの横並びを縦積みに */
+            .stage-layout-combined { flex-direction: column; flex: none; min-height: 0; }
+            .combined-panel { flex: none; }
+            .svg-court-container, .svg-goal-container { max-height: 260px; }
+            #player-buttons { overflow: visible; }
+            #player-buttons .btn-player { flex: 1 1 calc(25% - 6px); }
+
+            /* 記録画面 右パネル（ダッシュボード） */
+            .dashboard-top-row { height: auto; flex-direction: column; flex-shrink: 1; }
+            .dashboard-card { overflow: visible; }
+            .insight-list { overflow: visible; }
+            .dashboard-heatmap-area { flex: none; overflow: visible; }
+            .heatmap-flex-container { flex-direction: column; flex: none; min-height: 0; }
+            .mini-heatmap-container { min-height: 230px; }
+            .mini-court-heatmap { min-height: 230px; }
+
+            /* --- 分析画面 --- */
+            .analysis-full-view { flex-direction: column; height: auto; overflow: visible; min-width: 0; }
+            .analysis-left, .analysis-right { flex: none; height: auto; overflow: visible; min-width: 0; }
+            .table-wrapper { flex: none; min-height: 0; min-width: 0; overflow: visible; }
+            .table-inner-scroll { overflow-x: auto; }
+            .running-score-wrapper { flex: none; max-height: 60vh; }
+
+            /* --- データ管理画面 --- */
+            #view-data > div { overflow: visible; }
+            #view-data > div > div { height: auto; }
+
+            /* モーダルは画面内に収める */
+            .modal-content { width: 94%; max-height: 88vh; overflow-y: auto; }
+            .roster-grid { grid-template-columns: repeat(3, 1fr); }
+
+            /* 見出し・表の不自然な折り返し対策 */
+            .stage-title { font-size: 0.92rem; }
+            /* 「見出し＋操作ボタン」の横並びは、狭いと操作ボタンを下へ回す
+               （見出しに幅が戻るので、途中改行が起きなくなる） */
+            .main-container [style*="space-between"] { flex-wrap: wrap; row-gap: 6px; }
+            /* 詳細テーブルは列見出しを途中改行させず、横スクロールで見せる */
+            table { font-size: 0.8rem; }
+            .table-inner-scroll th, .table-inner-scroll td { white-space: nowrap; }
+        }
+    </style>
+<script type="text/javascript" nonce="22b67a5a6f044336af86aa87451" src="//local.adguard.org?ts=1784681839443&amp;type=content-script&amp;dmn=meiseiu-my.sharepoint.com&amp;url=https%3A%2F%2Fmeiseiu-my.sharepoint.com%2Fpersonal%2Fj213120_meisei-u_meisei-u_ac_jp%2F_layouts%2F15%2Fdownload.aspx%3FUniqueId%3D66f75e0f-4bc5-4852-adf6-af9540b6fb7f%26Translate%3Dfalse%26ApiVersion%3D2.0&amp;app=chrome.exe&amp;css=3&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script><script type="text/javascript" nonce="22b67a5a6f044336af86aa87451" src="//local.adguard.org?ts=1784681839443&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
+<body class="theme-self">
+
+<!-- 手動更新バナー（新バージョン検知時のみ表示） -->
+<div id="update-banner" onclick="applyUpdate()" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#f0a860; color:#0a2a35; text-align:center; padding:12px; font-weight:bold; cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,0.5); font-size:0.95rem;">🔄 新しいバージョンがあります（タップで更新）</div>
+
+<!-- 左サイドバー -->
+<div class="sidebar">
+    <button class="tab-btn active" id="tab-input" onclick="switchTab('input')">記録画面</button>
+    <button class="tab-btn" id="tab-analysis" onclick="switchTab('analysis')">本格分析</button>
+    <button class="tab-btn" id="tab-data" onclick="switchTab('data')">データ管理</button>
+    <button class="tab-btn" id="tab-info" onclick="switchTab('info')">アプリ情報</button>
+</div>
+
+<!-- =========================================================
+     画面A: 記録モード
+     ========================================================= -->
+<div id="view-input" class="main-container active-view">
+    <!-- 左カラム (入力) -->
+    <div class="left-col">
+        <div class="match-meta">
+            <button type="button" id="teamA-btn" class="opponent-btn" onclick="openTeamPicker('A')">A校を選ぶ</button>
+            <span style="font-family:'Oswald',sans-serif; color:var(--text-sub); font-weight:bold; padding:0 2px;">VS</span>
+            <button type="button" id="teamB-btn" class="opponent-btn" onclick="openTeamPicker('B')">B校を選ぶ</button>
+            <input type="hidden" id="teamA-name">
+            <input type="hidden" id="teamB-name">
+            <input type="date" id="match-date" style="width:130px; flex:none; background:var(--bg-panel); border:1px solid var(--border-color); color:var(--text-main); padding:6px; border-radius:6px; font-size:0.9rem;">
+            <div class="score-box-mini font-score" id="input-match-score">0 - 0</div>
+            <div class="timer-box">
+                <div id="timer-display">00:00</div>
+                <button id="btn-timer" class="timer-btn" onclick="toggleTimer()">START</button>
+                <button class="timer-btn" onclick="resetTimer()">RESET</button>
+            </div>
+        </div>
+
+        <div class="period-container" style="display: flex; gap: 6px; margin-bottom: 8px;">
+            <button type="button" class="btn period-btn active" id="btn-period-前半" onclick="setPeriod('前半')" style="flex: 1; padding: 8px;">前半</button>
+            <button type="button" class="btn period-btn" id="btn-period-後半" onclick="setPeriod('後半')" style="flex: 1; padding: 8px;">後半</button>
+        </div>
+
+        <div class="always-team-grid">
+            <div class="team-block">
+                <div class="team-block-label" id="label-team-a">A校 攻撃</div>
+                <div class="sit-buttons-grid" id="group-sit-self">
+                    <button class="btn-sit active-self" id="sit-self-セット" onclick="selectTeamSituation('自チーム', 'セット')">セット</button>
+                    <button class="btn-sit" id="sit-self-速攻" onclick="selectTeamSituation('自チーム', '速攻')">速攻</button>
+                    <button class="btn-sit" id="sit-self-7m" onclick="selectTeamSituation('自チーム', '7m')">7m</button>
+                    <button class="btn-sit" id="sit-self-その他" onclick="selectTeamSituation('自チーム', 'その他')">その他</button>
+                </div>
+            </div>
+            <div class="team-block">
+                <div class="team-block-label" id="label-team-b">B校 攻撃</div>
+                <div class="sit-buttons-grid" id="group-sit-enemy">
+                    <button class="btn-sit" id="sit-enemy-セット" onclick="selectTeamSituation('相手チーム', 'セット')">セット</button>
+                    <button class="btn-sit" id="sit-enemy-速攻" onclick="selectTeamSituation('相手チーム', '速攻')">速攻</button>
+                    <button class="btn-sit" id="sit-enemy-7m" onclick="selectTeamSituation('相手チーム', '7m')">7m</button>
+                    <button class="btn-sit" id="sit-enemy-その他" onclick="selectTeamSituation('相手チーム', 'その他')">その他</button>
+                </div>
+            </div>
+            <button class="btn-quick-turnover" onclick="quickTurnover()">対象チームのターンオーバー（ミス）</button>
+        </div>
+
+        <div class="history-area">
+            <span class="history-title">直近履歴</span>
+            <div class="history-list" id="history-chips-container"></div>
+            <button class="btn-undo-action" onclick="undoLastAction()">1手戻る</button>
+        </div>
+
+        <div class="step-chips">
+            <div class="chip active" id="chip-1" onclick="goToStep(1)">
+                <div class="chip-label">1. 選手</div>
+                <div class="chip-value" id="val-1">入力中</div>
+            </div>
+            <div class="chip" id="chip-2" onclick="goToStep(2)">
+                <div class="chip-label">2. エリア・コース</div>
+                <div class="chip-value" id="val-2">−</div>
+            </div>
+            <div class="chip" id="chip-3" onclick="goToStep(3)">
+                <div class="chip-label">3. 結果</div>
+                <div class="chip-value" id="val-3">−</div>
+            </div>
+        </div>
+
+        <!-- 入力ステージ -->
+        <div class="input-stage">
+            <div id="step-1" class="step-view active">
+                <div class="stage-title">
+                    <span>1. シュート選手</span>
+                    <button onclick="openRosterModal()" style="background:none; border:none; color:var(--accent); font-size:0.9rem; cursor:pointer; font-weight:bold;">選手登録・編集</button>
+                </div>
+                <div id="default-position-buttons" style="display: flex; gap: 6px; margin-bottom: 12px; width: 100%;">
+                    <button class="btn btn-position" onclick="selectPlayer('左サイド')" style="flex: 1; padding: 12px 2px; font-size: 0.85rem;">左サイド</button>
+                    <button class="btn btn-position" onclick="selectPlayer('左４５')" style="flex: 1; padding: 12px 2px; font-size: 0.85rem;">左４５</button>
+                    <button class="btn btn-position" onclick="selectPlayer('センター')" style="flex: 1; padding: 12px 2px; font-size: 0.85rem;">センター</button>
+                    <button class="btn btn-position" onclick="selectPlayer('ポスト')" style="flex: 1; padding: 12px 2px; font-size: 0.85rem;">ポスト</button>
+                    <button class="btn btn-position" onclick="selectPlayer('右４５')" style="flex: 1; padding: 12px 2px; font-size: 0.85rem;">右４５</button>
+                    <button class="btn btn-position" onclick="selectPlayer('右サイド')" style="flex: 1; padding: 12px 2px; font-size: 0.85rem;">右サイド</button>
+                </div>
+                <div id="player-source-bar" class="player-source-bar" style="margin-bottom: 8px;"></div>
+                <div id="player-buttons"></div>
+            </div>
+
+            <div id="step-2" class="step-view">
+                <div class="stage-title">
+                    <span>2. コート位置 ＆ ゴールコース同時選択</span>
+                    <span style="color:var(--accent); font-size:0.85rem; cursor:pointer;" onclick="goToStep(1)">選手選択へ戻る</span>
+                </div>
+                <div class="stage-layout-combined">
+                    <div class="combined-panel" id="panel-court-map">
+                        <div class="panel-sub-title">エリア (コートマップ)</div>
+                        <svg viewBox="0 0 400 250" class="svg-court-container" id="court-map-svg">
+                            <rect x="160" y="5" width="80" height="15" fill="none" stroke="#f0a860" stroke-width="3" />
+                            <path d="M 150 90 L 250 90" fill="none" stroke="#2dd4bf" stroke-opacity="0.5" stroke-dasharray="4 4" stroke-width="2" pointer-events="none"/>
+                            <path id="slice-LW" d="M 10 20 L 80 20 Q 80 50 90 70 L 20 110 L 10 110 Z" class="court-slice" onclick="selectAreaFromMap('LW', '左サイド')"/>
+                            <text x="35" y="60" class="court-text">左サイド</text>
+                            <path id="slice-LB" d="M 90 70 Q 110 110 140 110 L 140 170 Q 50 170 20 110 Z" class="court-slice" onclick="selectAreaFromMap('LB', '左45')"/>
+                            <text x="80" y="120" class="court-text">左45</text>
+                            <path id="slice-CB" d="M 140 110 L 260 110 L 260 170 L 140 170 Z" class="court-slice" onclick="selectAreaFromMap('CB', 'センター')"/>
+                            <text x="200" y="140" class="court-text">センター</text>
+                            <path id="slice-RB" d="M 310 70 L 380 110 Q 350 170 260 170 L 260 110 Q 290 110 310 70 Z" class="court-slice" onclick="selectAreaFromMap('RB', '右45')"/>
+                            <text x="320" y="120" class="court-text">右45</text>
+                            <path id="slice-RW" d="M 320 20 L 390 20 L 390 110 L 380 110 L 310 70 Q 320 50 320 20 Z" class="court-slice" onclick="selectAreaFromMap('RW', '右サイド')"/>
+                            <text x="365" y="60" class="court-text">右サイド</text>
+                            <path id="slice-LBL" d="M 10 110 L 20 110 Q 50 170 140 170 L 140 240 L 10 240 Z" class="court-slice" onclick="selectAreaFromMap('LBL', '左45ロング')"/>
+                            <text x="75" y="200" class="court-text">左45ロング</text>
+                            <path id="slice-CBL" d="M 140 170 L 260 170 L 260 240 L 140 240 Z" class="court-slice" onclick="selectAreaFromMap('CBL', 'センターロング')"/>
+                            <text x="200" y="200" class="court-text">センターロング</text>
+                            <path id="slice-RBL" d="M 380 110 L 390 110 L 390 240 L 260 240 L 260 170 Q 350 170 380 110 Z" class="court-slice" onclick="selectAreaFromMap('RBL', '右45ロング')"/>
+                            <text x="325" y="200" class="court-text">右45ロング</text>
+                            <ellipse id="slice-PV" cx="200" cy="60" rx="45" ry="20" class="court-slice" onclick="selectAreaFromMap('PV', 'ポスト')"/>
+                            <text x="200" y="60" class="court-text">ポスト</text>
+                        </svg>
+                        <div class="grid-buttons" style="margin-top: 8px;">
+                            <button class="btn" id="btn-map-OTHER" onclick="selectAreaFromMap('OTHER', 'その他')">その他エリア</button>
+                        </div>
+                    </div>
+                    <div class="combined-panel">
+                        <div class="panel-sub-title">シュートコース (9分割＋枠外16)</div>
+                        <svg viewBox="-28 -28 296 216" class="svg-goal-container">
+                            <!-- 枠外エリア（16マス）：ゴール9マスの外周をぐるっと囲む。5×5のうち内側3×3を除いた外周部分 -->
+                            <g class="frame-out-group">
+                                <g onclick="selectCourse('左上外')"><rect id="rc-左上外" x="-28" y="-28" width="32" height="32" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="-12" y="-9" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('上外左')"><rect id="rc-上外左" x="4" y="-28" width="77" height="32" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="42" y="-9" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('上外')"><rect id="rc-上外" x="81" y="-28" width="77" height="32" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="119" y="-9" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('上外右')"><rect id="rc-上外右" x="158" y="-28" width="77" height="32" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="196" y="-9" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('右上外')"><rect id="rc-右上外" x="236" y="-28" width="32" height="32" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="252" y="-9" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('左外上')"><rect id="rc-左外上" x="-28" y="4" width="32" height="50" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="-12" y="32" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('左外中')"><rect id="rc-左外中" x="-28" y="54" width="32" height="50" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="-12" y="82" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('左外下')"><rect id="rc-左外下" x="-28" y="104" width="32" height="50" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="-12" y="132" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('右外上')"><rect id="rc-右外上" x="236" y="4" width="32" height="50" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="252" y="32" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('右外中')"><rect id="rc-右外中" x="236" y="54" width="32" height="50" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="252" y="82" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('右外下')"><rect id="rc-右外下" x="236" y="104" width="32" height="50" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="252" y="132" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('左下外')"><rect id="rc-左下外" x="-28" y="156" width="32" height="32" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="-12" y="176" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('下外左')"><rect id="rc-下外左" x="4" y="156" width="77" height="32" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="42" y="176" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('下外')"><rect id="rc-下外" x="81" y="156" width="77" height="32" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="119" y="176" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('下外右')"><rect id="rc-下外右" x="158" y="156" width="77" height="32" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="196" y="176" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                                <g onclick="selectCourse('右下外')"><rect id="rc-右下外" x="236" y="156" width="32" height="32" class="svg-rect" style="fill: rgba(71,85,105,0.55);"/><text x="252" y="176" fill="#cbd5e1" text-anchor="middle" font-size="9" font-weight="bold" pointer-events="none">枠</text></g>
+                            </g>
+                            <rect x="4" y="4" width="232" height="152" fill="none" stroke="#f0a860" stroke-width="4" pointer-events="none" />
+                            <g onclick="selectCourse('左上')"><rect id="rc-左上" x="4" y="4" width="77" height="50" class="svg-rect"/><text x="42" y="33" fill="#fff" text-anchor="middle" font-size="14" font-weight="bold" pointer-events="none">左上</text></g>
+                            <g onclick="selectCourse('中上')"><rect id="rc-中上" x="81" y="4" width="77" height="50" class="svg-rect"/><text x="119" y="33" fill="#fff" text-anchor="middle" font-size="14" font-weight="bold" pointer-events="none">中上</text></g>
+                            <g onclick="selectCourse('右上')"><rect id="rc-右上" x="158" y="4" width="77" height="50" class="svg-rect"/><text x="196" y="33" fill="#fff" text-anchor="middle" font-size="14" font-weight="bold" pointer-events="none">右上</text></g>
+                            <g onclick="selectCourse('左中')"><rect id="rc-左中" x="4" y="54" width="77" height="50" class="svg-rect"/><text x="42" y="83" fill="#fff" text-anchor="middle" font-size="14" font-weight="bold" pointer-events="none">左中</text></g>
+                            <g onclick="selectCourse('中央')"><rect id="rc-中央" x="81" y="54" width="77" height="50" class="svg-rect"/><text x="119" y="83" fill="#fff" text-anchor="middle" font-size="14" font-weight="bold" pointer-events="none">中央</text></g>
+                            <g onclick="selectCourse('右中')"><rect id="rc-右中" x="158" y="54" width="77" height="50" class="svg-rect"/><text x="196" y="83" fill="#fff" text-anchor="middle" font-size="14" font-weight="bold" pointer-events="none">右中</text></g>
+                            <g onclick="selectCourse('左下')"><rect id="rc-左下" x="4" y="104" width="77" height="50" class="svg-rect"/><text x="42" y="133" fill="#fff" text-anchor="middle" font-size="14" font-weight="bold" pointer-events="none">左下</text></g>
+                            <g onclick="selectCourse('中下')"><rect id="rc-中下" x="81" y="104" width="77" height="50" class="svg-rect"/><text x="119" y="133" fill="#fff" text-anchor="middle" font-size="14" font-weight="bold" pointer-events="none">中下</text></g>
+                            <g onclick="selectCourse('右下')"><rect id="rc-右下" x="158" y="104" width="77" height="50" class="svg-rect"/><text x="196" y="133" fill="#fff" text-anchor="middle" font-size="14" font-weight="bold" pointer-events="none">右下</text></g>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div id="step-3" class="step-view">
+                <div class="stage-title">
+                    <span>3. シュート結果</span>
+                    <span style="color:var(--accent); font-size:0.85rem; cursor:pointer;" onclick="goToStep(2)">エリア・コース選択へ戻る</span>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:12px;">
+                    <button class="btn btn-res-goal" style="padding:22px; font-size:1.3rem;" onclick="selectResult('ゴール')">ゴール得点</button>
+                    <div style="display:flex; gap:12px;">
+                        <button class="btn btn-res-save" style="flex:1; padding:18px; font-size:1.1rem;" onclick="selectResult('セーブ')">キーパーセーブ</button>
+                        <button class="btn btn-res-miss" style="flex:1; padding:18px; font-size:1.1rem;" onclick="selectResult('ポスト/バー')">ポスト・バー直撃</button>
+                    </div>
+                    <button class="btn btn-res-miss" style="padding:18px; font-size:1.1rem;" onclick="selectResult('枠外・ミス')">枠外・完全ミス</button>
+                </div>
+            </div>
+            
+            <div id="toast" class="toast">記録完了</div>
+        </div>
+    </div>
+    
+    <!-- 右カラム (簡単分析ダッシュボード) -->
+    <div class="right-col">
+        <!-- 上段：サマリー情報 -->
+        <div class="dashboard-top-row">
+            <div class="dashboard-card">
+                <div class="panel-sub-title" id="label-setof">セットOF (オフェンス) 統計</div>
+                <div class="insight-list">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                        <span style="font-size:1.4rem; font-weight:bold;"><span id="set-total">0</span>回</span>
+                        <span style="font-size:0.9rem; color:var(--text-sub);">得点率: <span id="set-rate" style="font-size:1.4rem; font-weight:bold; color:var(--success);">0%</span></span>
+                    </div>
+                    <div class="stat-bar-container" id="set-bar"></div>
+                    <div class="stat-legend">
+                        <span>得点 <strong id="set-goal-txt">0</strong></span>
+                        <span>防/枠 <strong id="set-fail-txt">0</strong></span>
+                        <span>ミス <strong id="set-miss-txt">0</strong></span>
+                    </div>
+                    <!-- 相手の攻撃移行パターン -->
+                    <div id="label-transition" style="font-size: 0.75rem; color: var(--text-sub); margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">B校の攻撃移行パターン (A校の攻撃終了時)</div>
+                    <div class="insight-item" style="border:none; padding: 2px 0;"><span id="label-trans-fast">B校の速攻数 (セーブ等):</span><span id="ins-enemy-fast" style="font-weight:bold; color:var(--accent);">0回</span></div>
+                    <div class="insight-item" style="border:none; padding: 2px 0;"><span id="label-trans-set">B校のセット数 (枠外等):</span><span id="ins-enemy-set" style="font-weight:bold; color:var(--accent);">0回</span></div>
+                </div>
+            </div>
+
+            <div class="dashboard-card">
+                <div class="panel-sub-title" id="label-top3">得点源 TOP3</div>
+                <div class="insight-list" id="ins-top3-enemy"></div>
+            </div>
+        </div>
+
+        <!-- 下段：動的ヒートマップエリア -->
+        <div class="dashboard-heatmap-area">
+            <h2 id="dynamic-heatmap-title" style="margin:0 0 10px 0; font-size:1.1rem; color:var(--accent); border-bottom: 2px solid var(--border-color); padding-bottom: 4px;">自チーム 攻撃分析マップ</h2>
+            
+            <!-- 自チーム用 ヒートマップ群 -->
+            <div id="heat-container-self" class="heatmap-flex-container">
+                <div class="heatmap-col">
+                    <div class="panel-sub-title" style="font-size:0.75rem;">得点コース分析 <span style="font-size:0.65rem; color:var(--text-sub); font-weight:normal; margin-left:4px;">(内側:赤いほど得点率が高い／数字=得点/本数　外周:赤いほど枠外が多い　枠の太さ=本数)</span></div>
+                    <div class="mini-heatmap-container">
+                        <div class="mini-heat-cell outer" id="self-heat-左上外"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-上外左"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-上外"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-上外右"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-右上外"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-左外上"><span class="num">0</span></div>
+                        <div class="mini-heat-cell" id="self-heat-左上">左上<span class="num">0/0</span></div>
+                        <div class="mini-heat-cell" id="self-heat-中上">中上<span class="num">0/0</span></div>
+                        <div class="mini-heat-cell" id="self-heat-右上">右上<span class="num">0/0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-右外上"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-左外中"><span class="num">0</span></div>
+                        <div class="mini-heat-cell" id="self-heat-左中">左中<span class="num">0/0</span></div>
+                        <div class="mini-heat-cell" id="self-heat-中央">中央<span class="num">0/0</span></div>
+                        <div class="mini-heat-cell" id="self-heat-右中">右中<span class="num">0/0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-右外中"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-左外下"><span class="num">0</span></div>
+                        <div class="mini-heat-cell" id="self-heat-左下">左下<span class="num">0/0</span></div>
+                        <div class="mini-heat-cell" id="self-heat-中下">中下<span class="num">0/0</span></div>
+                        <div class="mini-heat-cell" id="self-heat-右下">右下<span class="num">0/0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-右外下"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-左下外"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-下外左"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-下外"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-下外右"><span class="num">0</span></div>
+                        <div class="mini-heat-cell outer" id="self-heat-右下外"><span class="num">0</span></div>
+                    </div>
+                </div>
+                <div class="heatmap-col">
+                    <div class="panel-sub-title" style="font-size:0.75rem;">得点エリアマップ <span style="font-size:0.65rem; color:var(--text-sub); font-weight:normal; margin-left:4px;">(赤いほど得点が多いエリア)</span></div>
+                    <svg viewBox="0 0 400 250" class="mini-court-heatmap" id="self-court-svg">
+                        <rect x="160" y="5" width="80" height="15" fill="none" stroke="var(--accent)" stroke-width="3" />
+                        <path id="self-slice-LW" d="M 10 20 L 80 20 Q 80 50 90 70 L 20 110 L 10 110 Z" class="court-slice" style="cursor:default;" />
+                        <text x="35" y="60" class="court-text">左SD</text>
+                        <path id="self-slice-LB" d="M 90 70 Q 110 110 140 110 L 140 170 Q 50 170 20 110 Z" class="court-slice" style="cursor:default;" />
+                        <text x="80" y="120" class="court-text">左45</text>
+                        <path id="self-slice-CB" d="M 140 110 L 260 110 L 260 170 L 140 170 Z" class="court-slice" style="cursor:default;" />
+                        <text x="200" y="140" class="court-text">中央</text>
+                        <path id="self-slice-RB" d="M 310 70 L 380 110 Q 350 170 260 170 L 260 110 Q 290 110 310 70 Z" class="court-slice" style="cursor:default;" />
+                        <text x="320" y="120" class="court-text">右45</text>
+                        <path id="self-slice-RW" d="M 320 20 L 390 20 L 390 110 L 380 110 L 310 70 Q 320 50 320 20 Z" class="court-slice" style="cursor:default;" />
+                        <text x="365" y="60" class="court-text">右SD</text>
+                        <path id="self-slice-LBL" d="M 10 110 L 20 110 Q 50 170 140 170 L 140 240 L 10 240 Z" class="court-slice" style="cursor:default;" />
+                        <text x="75" y="200" class="court-text">左45L</text>
+                        <path id="self-slice-CBL" d="M 140 170 L 260 170 L 260 240 L 140 240 Z" class="court-slice" style="cursor:default;" />
+                        <text x="200" y="200" class="court-text">センターロング</text>
+                        <path id="self-slice-RBL" d="M 380 110 L 390 110 L 390 240 L 260 240 L 260 170 Q 350 170 380 110 Z" class="court-slice" style="cursor:default;" />
+                        <text x="325" y="200" class="court-text">右45L</text>
+                        <ellipse id="self-slice-PV" cx="200" cy="60" rx="45" ry="20" class="court-slice" style="cursor:default;"/>
+                        <text x="200" y="60" class="court-text">ポスト</text>
+                    </svg>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     画面B: 本格分析・集計モード (テーブル特化)
+     ========================================================= -->
+<div id="view-analysis" class="main-container">
+    <div class="analysis-full-view">
+        <!-- 左側：詳細スタッツテーブル -->
+        <div class="analysis-left">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div class="stage-title" style="margin:0;">詳細データテーブル</div>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn active" id="f-btn-self" onclick="setDetailedAnalysisTeam('自チーム')" style="padding: 6px 12px; font-size: 0.85rem;">A校</button>
+                    <button class="btn" id="f-btn-enemy" onclick="setDetailedAnalysisTeam('相手チーム')" style="padding: 6px 12px; font-size: 0.85rem;">B校</button>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn active" id="tbl-btn-situation" onclick="showTable('situation')" style="flex:1; padding:10px; font-size: 0.9rem;">局面別</button>
+                <button class="btn" id="tbl-btn-area" onclick="showTable('area')" style="flex:1; padding:10px; font-size: 0.9rem;">エリア別</button>
+                <button class="btn" id="tbl-btn-course" onclick="showTable('course')" style="flex:1; padding:10px; font-size: 0.9rem;">コース別</button>
+                <button class="btn" id="tbl-btn-player" onclick="showTable('player')" style="flex:1; padding:10px; font-size: 0.9rem;">選手別</button>
+            </div>
+            <div class="table-wrapper">
+                <div class="table-inner-scroll">
+                    <table>
+                        <thead><tr><th>項目</th><th>総シュート数</th><th>得点</th><th>阻止 / 枠</th><th>完全ミス</th><th>成功率</th></tr></thead>
+                        <tbody id="t-full-data"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：スコア経過 -->
+        <div class="analysis-right">
+            <div class="stage-title" style="margin: 0; padding: 8px 12px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                <span>試合スコア経過</span>
+                <span id="analysis-total-score" style="color:var(--accent); font-size:1.3rem;">0 - 0</span>
+            </div>
+            <div class="running-score-wrapper">
+                <table style="width:100%;">
+                    <thead><tr><th>時間</th><th>チーム</th><th>得点者</th><th>スコア</th></tr></thead>
+                    <tbody id="t-full-running"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     画面C: データ管理モード (CSV エクスポート / インポート)
+     ========================================================= -->
+<div id="view-data" class="main-container">
+    <div style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
+        
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; height: 100%;">
+            <!-- 左：試合ごとのエクスポート -->
+            <div style="flex: 1.2; min-width: 300px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; display: flex; flex-direction: column; max-height: 100%;">
+                <h2 style="font-size: 1.1rem; color: var(--text-main); margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">試合別データ エクスポート (CSV)</h2>
+                <div style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 12px;">試合ごとの記録をCSVファイルとして書き出します。</div>
+                <div id="data-match-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1; padding-right: 5px;">
+                    <!-- JSにて動的生成 -->
+                </div>
+            </div>
+
+            <!-- 右：インポート ＆ 全データ管理 -->
+            <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px;">
+                <div style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px;">
+                    <h2 style="font-size: 1.1rem; color: var(--text-main); margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">データのインポート (復元・追加)</h2>
+                    <div style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 12px;">出力したCSVファイルを読み込みます。既存の記録と重複する場合は自動で上書きされます。</div>
+                    <input type="file" id="import-file" accept=".csv" style="margin-bottom: 12px; color: var(--text-main); width: 100%; font-size: 0.9rem;">
+                    <button class="btn" style="width: 100%; background: #0284c7; border-color: #0284c7; color: white; padding: 12px;" onclick="importCSVData()">選択したファイルからインポート</button>
+                </div>
+
+                <div style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px;">
+                    <h2 style="font-size: 1.1rem; color: var(--text-main); margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">全データの一括管理</h2>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                        <button class="btn" style="background: #475569; border-color: #475569; color: white; padding: 12px;" onclick="exportAllCSV()">全データをCSVで出力 (一括バックアップ)</button>
+                        <button class="btn" style="background: transparent; border: 1px solid #e11d48; color: #e11d48; padding: 12px;" onclick="clearAllData()">全記録データの初期化 (全削除)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     画面D: アプリ情報タブ
+     ========================================================= -->
+<div id="view-info" class="main-container">
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; padding: 30px;">
+        <h1 style="color: var(--accent); margin: 0; font-family: 'Oswald', sans-serif; letter-spacing: 2px; font-size: 2.5rem;">観戦くん by Danno</h1>
+        <div style="color: var(--text-sub); font-size: 1.2rem;">Ver. 1.0.0</div>
+        <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; max-width: 520px; line-height: 1.6;">
+            分析くん 観戦Ver.（他校 VS 他校の記録用）<br>
+            最終更新: 2026-07-23<br><br>
+            A校・B校の2チームを選んで記録します。選手ボタンは選んだ学校に自動で連動し、学校ごとに保存されます（未登録の学校は背番号 #2〜#16 を初期表示）。<br>
+            記録画面の分析は両チームとも「攻撃側の視点」に統一。得点コースは得点率が高いほど赤く、枠外は本数が多いほど赤く表示されます。<br>
+            データは分析くんとは別に保存されます。CSVは集計くんでもそのまま読み込めます。
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     選手登録モーダル
+     ========================================================= -->
+<div class="modal-overlay" id="roster-modal">
+    <div class="modal-content">
+        <h2 id="roster-modal-title" style="margin-top:0; color:var(--accent);">選手 登録・編集</h2>
+        <div id="roster-context"></div>
+        <div style="display:flex; gap:8px; margin-bottom:15px;">
+            <input type="text" id="ros-num" placeholder="背番号(任意)" style="width:90px; padding:10px; border-radius:4px; border:1px solid #ccc; font-size:1rem;">
+            <input type="text" id="ros-name" placeholder="選手名(任意)" style="flex:1; padding:10px; border-radius:4px; border:1px solid #ccc; font-size:1rem;">
+            <button class="btn" style="padding:10px 15px;" onclick="addRosterPlayer()">追加</button>
+        </div>
+        <div class="roster-grid" id="roster-list-box"></div>
+        <div style="text-align:right; margin-top: 15px;">
+            <button class="btn" style="background:#475569; border:none; padding:10px 25px; color:white;" onclick="closeRosterModal()">完了</button>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     対戦校ピッカー（カテゴリ→プリセット→直接入力）
+     ========================================================= -->
+<div id="opp-picker-overlay" class="opp-overlay" style="display:none;" onclick="if(event.target===this) closeOpponentPicker()">
+    <div class="opp-modal">
+        <div class="opp-modal-head">
+            <span id="opp-picker-title">A校を選ぶ</span>
+            <button class="opp-close" onclick="closeOpponentPicker()">×</button>
+        </div>
+
+        <div class="opp-section-label">1. カテゴリを選ぶ</div>
+        <div class="opp-cat-row" id="opp-cat-row">
+            <button class="opp-cat" data-cat="中学男子" onclick="selectOppCategory('中学男子')">中学 男子</button>
+            <button class="opp-cat" data-cat="中学女子" onclick="selectOppCategory('中学女子')">中学 女子</button>
+            <button class="opp-cat" data-cat="高校男子" onclick="selectOppCategory('高校男子')">高校 男子</button>
+            <button class="opp-cat" data-cat="高校女子" onclick="selectOppCategory('高校女子')">高校 女子</button>
+        </div>
+
+        <div class="opp-section-label">
+            <span>2. チームを選ぶ</span>
+            <button class="opp-edit-toggle" id="opp-edit-toggle" onclick="toggleOppEdit()">編集</button>
+        </div>
+        <div class="opp-chips" id="opp-chips"></div>
+
+        <div class="opp-section-label">3. 一覧にない場合は直接入力</div>
+        <div class="opp-direct-row">
+            <input type="text" id="opp-direct-input" placeholder="チーム名を入力">
+            <button class="opp-direct-btn" onclick="confirmDirectOpponent()">この名前で決定</button>
+        </div>
+        <button class="opp-add-preset" id="opp-add-preset" onclick="addTypedToPreset()">＋ 入力したチームを「<span id="opp-add-cat">カテゴリ</span>」のプリセットに追加</button>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 0. 選手登録機能 (PCドラッグ & iPadタッチ対応)
+    // ==========================================
+    let defaultRoster = [{n:'2', nm:''},{n:'3', nm:''},{n:'4', nm:''},{n:'5', nm:''},{n:'6', nm:''},{n:'7', nm:''},{n:'8', nm:''},{n:'9', nm:''},{n:'10', nm:''},{n:'11', nm:''},{n:'12', nm:''},{n:'13', nm:''},{n:'14', nm:''},{n:'15', nm:''},{n:'16', nm:''}];
+
+    // ==========================================
+    // 観戦Ver.：A校・B校ともに「学校名ごとの選手表」を使う
+    // 内部の team 値は分析くんと互換（'自チーム'=A校 / '相手チーム'=B校）
+    // ==========================================
+    const SIDE_A = '自チーム';   // = A校（内部値。CSV互換のためこの文字列を保持）
+    const SIDE_B = '相手チーム'; // = B校
+
+    // 学校名ごとの選手表  保存形式: { "青山学院": [{n,nm},...], ... }
+    let schoolRosters = {};
+    try { schoolRosters = JSON.parse(localStorage.getItem('kansen_school_rosters')) || {}; } catch(e) { schoolRosters = {}; }
+    function saveSchoolRosters() { localStorage.setItem('kansen_school_rosters', JSON.stringify(schoolRosters)); }
+
+    // A校／B校の学校名
+    function teamAName() { return (document.getElementById('teamA-name').value || '').trim(); }
+    function teamBName() { return (document.getElementById('teamB-name').value || '').trim(); }
+    function sideName(side) { return side === SIDE_B ? teamBName() : teamAName(); }
+    function sideLabel(side) { return sideName(side) || (side === SIDE_B ? 'B校' : 'A校'); }
+    function currentSideName() { return sideName(entry.team); }
+
+    function schoolRosterFor(name) {
+        if (!name) return [];
+        if (!Array.isArray(schoolRosters[name])) schoolRosters[name] = [];
+        return schoolRosters[name];
+    }
+    // まだ登録がない学校は、初期値として背番号のみ(#2〜#16)を並べる
+    function ensureSchoolDefault(name) {
+        if (!name) return [];
+        let arr = schoolRosterFor(name);
+        if (arr.length === 0) {
+            schoolRosters[name] = JSON.parse(JSON.stringify(defaultRoster)); // 背番号のみ・名前は空
+            saveSchoolRosters();
+        }
+        return schoolRosters[name];
+    }
+
+    // ---- 記録画面の選手ボタンは「今選んでいる側の学校」に連動 ----
+    function activeRosterForButtons() {
+        const nm = currentSideName();
+        if (!nm) return [];
+        return ensureSchoolDefault(nm);
+    }
+
+    // ---- モーダルで「今どの学校を編集しているか」 ----
+    let rosterEdit = { school: '' };
+    function editRosterArray() { return schoolRosterFor(rosterEdit.school); }
+    function persistEditRoster() { saveSchoolRosters(); }
+
+    // ==========================================
+    // 0-2. 対戦校プリセット（カテゴリ別）
+    // ★ 初期チーム名を変えたい時はこの下のリストを書き換えてください。
+    //    （アプリ内の「編集」ボタンからも、追加・削除ができます）
+    // ==========================================
+    const DEFAULT_TEAM_PRESETS = {
+        '中学男子': ['青山学院', '秋多', '麻布', '有明', '稲城三', '青梅三', '大坂上ＨＣ', '開成', '学大小金井', '葛西三', '金町', '亀戸', '国立一', '佼成学園', '小平五', '狛江一', '小松', '桜堤', '鹿骨', '品川翔英', '城西大城西', '城北', '真光寺', '巣鴨', '青嵐', '千川', '多摩ＨＣ', 'つくし野', '筑波大附属駒場', '東京農大一', '獨協', '七生', '光が丘三', '東久留米西', '東久留米南', '平山', '府中ＨＣ', '府中四', '松江六', '御園・大森七', '武蔵村山五', '武蔵村山四', '早稲田実業', '和田'],
+        '中学女子': [],
+        '高校男子': [],
+        '高校女子': []
+    };
+    let teamPresets = JSON.parse(localStorage.getItem('kansen_team_presets') || 'null') || JSON.parse(JSON.stringify(DEFAULT_TEAM_PRESETS));
+    // カテゴリを後から増やしても、保存済みデータに無ければ空で補う
+    Object.keys(DEFAULT_TEAM_PRESETS).forEach(k => { if (!Array.isArray(teamPresets[k])) teamPresets[k] = []; });
+
+    let currentOppCategory = localStorage.getItem('kansen_opp_last_cat') || '高校男子';
+    let oppEditMode = false;
+    let pickerSlot = 'A'; // 今どちらの枠を選んでいるか（'A' or 'B'）
+
+    function saveTeamPresets() { localStorage.setItem('kansen_team_presets', JSON.stringify(teamPresets)); }
+
+    // A校／B校どちらの枠を選ぶかを指定して開く
+    function openTeamPicker(slot) {
+        pickerSlot = (slot === 'B') ? 'B' : 'A';
+        oppEditMode = false;
+        document.getElementById('opp-edit-toggle').classList.remove('active');
+        document.getElementById('opp-edit-toggle').innerText = '編集';
+        document.getElementById('opp-picker-title').innerText = pickerSlot === 'A' ? 'A校を選ぶ' : 'B校を選ぶ';
+        // 直接入力欄に、現在その枠に入っている学校名を初期表示
+        document.getElementById('opp-direct-input').value =
+            (pickerSlot === 'A' ? teamAName() : teamBName()) || '';
+        selectOppCategory(currentOppCategory);
+        document.getElementById('opp-picker-overlay').style.display = 'flex';
+    }
+
+    function closeOpponentPicker() {
+        document.getElementById('opp-picker-overlay').style.display = 'none';
+    }
+
+    function selectOppCategory(cat) {
+        currentOppCategory = cat;
+        localStorage.setItem('kansen_opp_last_cat', cat);
+        document.querySelectorAll('#opp-cat-row .opp-cat').forEach(b => {
+            b.classList.toggle('active', b.dataset.cat === cat);
+        });
+        document.getElementById('opp-add-cat').innerText = cat;
+        renderOppChips();
+    }
+
+    function renderOppChips() {
+        const box = document.getElementById('opp-chips');
+        const list = teamPresets[currentOppCategory] || [];
+        if (list.length === 0) {
+            box.innerHTML = '<div class="opp-empty">このカテゴリの登録はまだありません。下で入力して「＋プリセットに追加」できます。</div>';
+            return;
+        }
+        box.innerHTML = '';
+        list.forEach(name => {
+            const chip = document.createElement('div');
+            chip.className = 'opp-chip';
+            const label = document.createElement('span');
+            label.innerText = name;
+            if (oppEditMode) {
+                const del = document.createElement('button');
+                del.className = 'del'; del.innerText = '×';
+                del.onclick = (e) => { e.stopPropagation(); deleteOppPreset(name); };
+                chip.appendChild(label);
+                chip.appendChild(del);
+                // 編集中はタップで選択させない（誤操作防止）
+            } else {
+                chip.appendChild(label);
+                chip.onclick = () => pickOpponent(name);
+            }
+            box.appendChild(chip);
+        });
+    }
+
+    // ピッカーで選ばれた学校を、A校／B校いずれかの枠に入れる
+    function pickOpponent(name) {
+        const clean = (name || '').trim();
+        const other = (pickerSlot === 'A') ? teamBName() : teamAName();
+        if (clean && clean === other) {
+            alert('A校とB校に同じ学校は選べません。');
+            return;
+        }
+        document.getElementById(pickerSlot === 'A' ? 'teamA-name' : 'teamB-name').value = clean;
+        refreshTeamButtons();
+        closeOpponentPicker();
+        // 選んだ学校の登録選手を自動で配置＆全ラベルを学校名に更新
+        refreshTeamLabels();
+        renderPlayerButtons();
+    }
+
+    // 上部のA校／B校ボタンの見た目を更新
+    function refreshTeamButtons() {
+        [['A', 'teamA-btn', teamAName()], ['B', 'teamB-btn', teamBName()]].forEach(([slot, btnId, nm]) => {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            if (nm) { btn.innerText = nm; btn.classList.add('has-value'); }
+            else { btn.innerText = slot + '校を選ぶ'; btn.classList.remove('has-value'); }
+        });
+    }
+
+    // 画面内の表記を、選んだ学校名／選択中の攻撃チームに合わせて更新する
+    function refreshTeamLabels() {
+        const A = sideLabel(SIDE_A), B = sideLabel(SIDE_B);
+        // 記録画面の右カラムは常に「今attackしているチーム」視点に揃える
+        const ATK = sideLabel(entry.team);                              // 攻撃側
+        const DEF = sideLabel(entry.team === SIDE_A ? SIDE_B : SIDE_A); // 守備側
+        const set = (id, txt) => { const el = document.getElementById(id); if (el) el.innerText = txt; };
+        set('label-team-a', A + ' 攻撃');
+        set('label-team-b', B + ' 攻撃');
+        set('label-setof', ATK + ' セットOF (オフェンス) 統計');
+        set('label-transition', ATK + 'の攻撃が終わった後、' + DEF + 'がどう出たか');
+        set('label-trans-fast', DEF + 'の速攻数 (セーブ等):');
+        set('label-trans-set', DEF + 'のセット数 (枠外等):');
+        set('label-top3', ATK + ' 得点源 TOP3');
+        set('f-btn-self', A);
+        set('f-btn-enemy', B);
+        const dyn = document.getElementById('dynamic-heatmap-title');
+        if (dyn) dyn.innerText = ATK + ' 攻撃分析マップ';
+    }
+
+    function confirmDirectOpponent() {
+        const v = document.getElementById('opp-direct-input').value.trim();
+        if (!v) { alert('チーム名を入力してください。'); return; }
+        pickOpponent(v);
+    }
+
+    function addTypedToPreset() {
+        const v = document.getElementById('opp-direct-input').value.trim();
+        if (!v) { alert('追加するチーム名を入力してください。'); return; }
+        if (!teamPresets[currentOppCategory]) teamPresets[currentOppCategory] = [];
+        if (teamPresets[currentOppCategory].includes(v)) {
+            alert('「' + v + '」は既に登録されています。');
+            return;
+        }
+        teamPresets[currentOppCategory].push(v);
+        saveTeamPresets();
+        renderOppChips();
+    }
+
+    function deleteOppPreset(name) {
+        if (!confirm('「' + name + '」をプリセットから削除しますか？')) return;
+        teamPresets[currentOppCategory] = (teamPresets[currentOppCategory] || []).filter(n => n !== name);
+        saveTeamPresets();
+        renderOppChips();
+    }
+
+    function toggleOppEdit() {
+        oppEditMode = !oppEditMode;
+        const t = document.getElementById('opp-edit-toggle');
+        t.classList.toggle('active', oppEditMode);
+        t.innerText = oppEditMode ? '完了' : '編集';
+        renderOppChips();
+    }
+
+    // 記録画面STEP1の上部：今どちらの学校の選手を出しているかを表示
+    function renderPlayerSourceBar() {
+        const bar = document.getElementById('player-source-bar');
+        if (!bar) return;
+        const slot = (entry.team === SIDE_B) ? 'B校' : 'A校';
+        const nm = currentSideName();
+        bar.innerHTML = nm
+            ? `<span class="psb-label">${slot} の選手：<b style="color:var(--accent);">${nm}</b></span>`
+            : `<span class="psb-label" style="color:#94a3b8;">${slot} が未選択です。上の「${slot}を選ぶ」から学校を選んでください。</span>`;
+    }
+
+    function playerLabel(p) {
+        if (p.n && p.nm) return `#${p.n} ${p.nm}`;
+        if (p.n) return `#${p.n}`;
+        return p.nm || '';
+    }
+
+    function renderPlayerButtons() {
+        renderPlayerSourceBar();
+        const pContainer = document.getElementById('player-buttons');
+        pContainer.innerHTML = '';
+        const list = activeRosterForButtons();
+        if (list.length === 0) {
+            const slot = (entry.team === SIDE_B) ? 'B校' : 'A校';
+            pContainer.innerHTML = `<div class="player-empty-hint">「${slot}を選ぶ」で学校を選ぶと、背番号ボタン（#2〜#16）が初期表示されます。番号や名前は「選手登録・編集」で自由に変更でき、その学校ごとに保存されます。（ポジションボタンでも記録できます）</div>`;
+            updateStepUI();
+            return;
+        }
+        list.forEach((p) => {
+            let btn = document.createElement('button'); btn.className = 'btn btn-player';
+            let numHtml = p.n ? `#${p.n}` : '';
+            btn.innerHTML = `<span class="num">${numHtml}</span><br><span class="name" style="font-size:0.75rem; font-weight:normal;">${p.nm || ''}</span>`;
+            let val = playerLabel(p);
+            btn.onclick = () => selectPlayer(val);
+            pContainer.appendChild(btn);
+        });
+        updateStepUI();
+    }
+
+    // モーダル上部：今どの学校の選手表を編集中かを表示
+    function renderRosterContext() {
+        const box = document.getElementById('roster-context');
+        if (!box) return;
+        const nm = rosterEdit.school;
+        const slot = (entry.team === SIDE_B) ? 'B校' : 'A校';
+        box.innerHTML = nm
+            ? `<div class="ros-ctx-title">${slot}：<b style="color:var(--accent);">${nm}</b> の選手（この学校に保存され、次回この学校を選ぶと自動で並びます）</div>`
+            : `<div class="ros-ctx-title" style="color:#e11d48;">先に上の「${slot}を選ぶ」で学校を選んでください。選手は学校名ごとに保存されます。</div>`;
+    }
+
+    function openRosterModal() {
+        rosterEdit.school = currentSideName();
+        if (rosterEdit.school) ensureSchoolDefault(rosterEdit.school);
+        const slot = (entry.team === SIDE_B) ? 'B校' : 'A校';
+        document.getElementById('roster-modal-title').innerText = slot + ' 選手 登録・編集';
+        document.getElementById('roster-modal').classList.add('show');
+        renderRosterContext();
+        renderRosterList();
+    }
+    function closeRosterModal() { document.getElementById('roster-modal').classList.remove('show'); }
+    
+    // --- ドラッグ&ドロップ用変数と関数 (PC用) ---
+    let dragSrcEl = null;
+
+    function handleDragStart(e) {
+        dragSrcEl = this;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', this.dataset.index);
+        this.classList.add('dragging');
+    }
+    function handleDragOver(e) {
+        if (e.preventDefault) { e.preventDefault(); }
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+    function handleDragEnter(e) { this.classList.add('drag-over'); }
+    function handleDragLeave(e) { this.classList.remove('drag-over'); }
+    function handleDrop(e) {
+        if (e.stopPropagation) { e.stopPropagation(); }
+        if (dragSrcEl !== this) {
+            let fromIdx = parseInt(dragSrcEl.dataset.index);
+            let toIdx = parseInt(this.dataset.index);
+            let arr = editRosterArray();
+            let movedItem = arr.splice(fromIdx, 1)[0];
+            arr.splice(toIdx, 0, movedItem);
+            persistEditRoster();
+            renderRosterList();
+            renderPlayerButtons();
+        }
+        return false;
+    }
+    function handleDragEnd(e) {
+        this.classList.remove('dragging');
+        document.querySelectorAll('.roster-item').forEach(item => item.classList.remove('drag-over'));
+    }
+
+    // --- ドラッグ&ドロップ用変数と関数 (iPad/Touch対応) ---
+    let touchSrcEl = null;
+
+    function handleTouchStart(e) {
+        if (e.target.classList.contains('roster-del')) return; 
+        touchSrcEl = this;
+        this.classList.add('dragging');
+    }
+
+    function handleTouchMove(e) {
+        if (!touchSrcEl) return;
+        e.preventDefault(); 
+        let touch = e.touches[0];
+        let targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        
+        document.querySelectorAll('.roster-item').forEach(item => item.classList.remove('drag-over'));
+        
+        if (targetEl) {
+            let dropTarget = targetEl.closest('.roster-item');
+            if (dropTarget && dropTarget !== touchSrcEl) {
+                dropTarget.classList.add('drag-over');
+            }
+        }
+    }
+
+    function handleTouchEnd(e) {
+        if (!touchSrcEl) return;
+        this.classList.remove('dragging');
+        document.querySelectorAll('.roster-item').forEach(item => item.classList.remove('drag-over'));
+        
+        let touch = e.changedTouches[0];
+        let targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        
+        if (targetEl) {
+            let dropTarget = targetEl.closest('.roster-item');
+            if (dropTarget && dropTarget !== touchSrcEl) {
+                let fromIdx = parseInt(touchSrcEl.dataset.index);
+                let toIdx = parseInt(dropTarget.dataset.index);
+                let arr = editRosterArray();
+                let movedItem = arr.splice(fromIdx, 1)[0];
+                arr.splice(toIdx, 0, movedItem);
+                persistEditRoster();
+                renderRosterList();
+                renderPlayerButtons();
+            }
+        }
+        touchSrcEl = null;
+    }
+
+    function renderRosterList() {
+        const box = document.getElementById('roster-list-box'); box.innerHTML = '';
+        const list = editRosterArray();
+        if (!rosterEdit.school) return;
+        list.forEach((p, idx) => {
+            let item = document.createElement('div');
+            item.className = 'roster-item';
+            item.draggable = true;
+            item.dataset.index = idx;
+            let topLine = p.n ? `#${p.n}` : '―';
+            let nameLine = p.nm || (p.n ? '未登録' : '');
+            item.innerHTML = `<div style="font-weight:bold; color:var(--accent); pointer-events:none;">${topLine}</div><div style="font-size:0.75rem; overflow:hidden; white-space:nowrap; pointer-events:none;">${nameLine}</div><button class="roster-del" onclick="deleteRoster(${idx})">×</button>`;
+            
+            item.addEventListener('dragstart', handleDragStart, false);
+            item.addEventListener('dragenter', handleDragEnter, false);
+            item.addEventListener('dragover', handleDragOver, false);
+            item.addEventListener('dragleave', handleDragLeave, false);
+            item.addEventListener('drop', handleDrop, false);
+            item.addEventListener('dragend', handleDragEnd, false);
+            
+            item.addEventListener('touchstart', handleTouchStart, { passive: false });
+            item.addEventListener('touchmove', handleTouchMove, { passive: false });
+            item.addEventListener('touchend', handleTouchEnd, false);
+
+            box.appendChild(item);
+        });
+    }
+
+    function addRosterPlayer() {
+        if (!rosterEdit.school) { alert('先に上の「A校を選ぶ／B校を選ぶ」で学校を選んでください。'); return; }
+        let num = document.getElementById('ros-num').value.trim();
+        let name = document.getElementById('ros-name').value.trim();
+        if(!num && !name) return alert('背番号か選手名のどちらか（または両方）を入力してください');
+        editRosterArray().push({n: num, nm: name});
+        persistEditRoster();
+        document.getElementById('ros-num').value = ''; document.getElementById('ros-name').value = '';
+        renderRosterList(); renderPlayerButtons();
+    }
+
+    function deleteRoster(idx) {
+        editRosterArray().splice(idx, 1);
+        persistEditRoster();
+        renderRosterList(); renderPlayerButtons();
+    }
+
+    // ==========================================
+    // 1. ストップウォッチ
+    // ==========================================
+    let timerInterval = null; let timerSeconds = 0; let isTimerRunning = false;
+    function formatTime(sec) { let m = Math.floor(sec / 60); let s = sec % 60; return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s); }
+    function toggleTimer() { const btn = document.getElementById('btn-timer'); if (isTimerRunning) { clearInterval(timerInterval); isTimerRunning = false; btn.innerText = 'START'; btn.classList.remove('running'); } else { isTimerRunning = true; btn.innerText = 'STOP'; btn.classList.add('running'); timerInterval = setInterval(() => { timerSeconds++; document.getElementById('timer-display').innerText = formatTime(timerSeconds); }, 1000); } }
+    function resetTimer() { if (confirm('タイマーをリセットしますか？')) { clearInterval(timerInterval); isTimerRunning = false; timerSeconds = 0; document.getElementById('timer-display').innerText = formatTime(timerSeconds); document.getElementById('btn-timer').innerText = 'START'; document.getElementById('btn-timer').classList.remove('running'); } }
+
+    // ==========================================
+    // 2. 入力制御・状態遷移フロー
+    // ==========================================
+    let entry = { team: '自チーム', situation: 'セット', player: null, area: null, mapKey: null, course: null, result: null };
+    let currentStep = 1;
+    let currentPeriod = '前半';
+
+    function setPeriod(periodVal) {
+        currentPeriod = periodVal;
+        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+        const activeBtn = document.getElementById(`btn-period-${periodVal}`);
+        if (activeBtn) activeBtn.classList.add('active');
+    }
+
+    function switchTab(tabName) {
+        document.getElementById('tab-input').classList.toggle('active', tabName === 'input');
+        document.getElementById('tab-analysis').classList.toggle('active', tabName === 'analysis');
+        document.getElementById('tab-data').classList.toggle('active', tabName === 'data');
+        document.getElementById('tab-info').classList.toggle('active', tabName === 'info');
+        
+        document.getElementById('view-input').classList.toggle('active-view', tabName === 'input');
+        document.getElementById('view-analysis').classList.toggle('active-view', tabName === 'analysis');
+        document.getElementById('view-data').classList.toggle('active-view', tabName === 'data');
+        document.getElementById('view-info').classList.toggle('active-view', tabName === 'info');
+        
+        if(tabName === 'analysis') generateDetailedAnalysis();
+        if(tabName === 'data') generateMatchList();
+    }
+
+    function selectTeamSituation(teamVal, sitVal) {
+        entry.team = teamVal; entry.situation = sitVal;
+        document.body.className = teamVal === SIDE_A ? 'theme-self' : 'theme-enemy';
+
+        // 右カラムの見出しを「攻撃中のチーム」に合わせて更新
+        refreshTeamLabels();
+
+
+        if (sitVal === '7m') {
+            entry.area = '7m';
+            entry.mapKey = '7m';
+        } else {
+            entry.area = null;
+            entry.mapKey = null;
+        }
+        
+        entry.player = null; entry.course = null; entry.result = null;
+        currentStep = 1;
+        renderPlayerButtons();
+        generateDashboardInsight();
+    }
+
+    function quickTurnover() {
+        entry.player = null;
+        entry.area = null;
+        entry.mapKey = null;
+        entry.course = null;
+        entry.result = 'ターンオーバー';
+        saveData();
+    }
+
+    function selectPlayer(val) { 
+        entry.player = val; 
+        currentStep = 2; 
+        updateStepUI(); 
+    }
+    
+    function selectAreaFromMap(mapKey, actualName) { 
+        entry.mapKey = mapKey; 
+        entry.area = actualName; 
+        checkStep2Completion(); 
+    }
+    
+    // 枠外の16マス（5×5の外周）。ここが選ばれたら自動で「枠外・ミス」として記録する
+    const FRAME_OUT_COURSES = ['左上外','上外左','上外','上外右','右上外','左外上','左外中','左外下','右外上','右外中','右外下','左下外','下外左','下外','下外右','右下外'];
+    function isFrameOut(c) { return FRAME_OUT_COURSES.includes(c); }
+
+    function selectCourse(val) {
+        entry.course = val;
+        checkStep2Completion();
+    }
+
+    function checkStep2Completion() {
+        if (entry.area && entry.course) {
+            // 枠外を選んだ場合は結果選択をスキップして自動で「枠外・ミス」記録
+            if (isFrameOut(entry.course)) {
+                entry.result = '枠外・ミス';
+                saveData();
+                return;
+            }
+            currentStep = 3;
+            updateStepUI();
+        } else {
+            updateStepUI();
+        }
+    }
+
+    function selectResult(val) { 
+        entry.result = val; 
+        saveData(); 
+    }
+
+    function goToStep(n) {
+        if (n === 1) {
+            entry.player = null;
+            if (entry.situation !== '7m') { entry.area = null; entry.mapKey = null; }
+            entry.course = null;
+            currentStep = 1;
+        } else if (n === 2) {
+            if (!entry.player) return;
+            entry.course = null;
+            if (entry.situation !== '7m') { entry.area = null; entry.mapKey = null; }
+            currentStep = 2;
+        } else if (n === 3) {
+            if (!entry.player || !entry.area || !entry.course) return;
+            currentStep = 3;
+        }
+        updateStepUI();
+    }
+
+    function updateStepUI() {
+        document.querySelectorAll('.btn-sit').forEach(b => b.className = 'btn-sit');
+        const targetBtn = document.getElementById(entry.team === '自チーム' ? `sit-self-${entry.situation}` : `sit-enemy-${entry.situation}`);
+        if(targetBtn) targetBtn.className = entry.team === '自チーム' ? 'btn-sit active-self' : 'btn-sit active-enemy';
+
+        const courtPanel = document.getElementById('panel-court-map');
+        if (courtPanel) {
+            if (entry.situation === '7m') {
+                courtPanel.style.opacity = '0.35';
+                courtPanel.style.pointerEvents = 'none';
+            } else {
+                courtPanel.style.opacity = '1';
+                courtPanel.style.pointerEvents = 'auto';
+            }
+        }
+
+        document.getElementById('val-1').innerText = entry.player || '入力中';
+        let areaText = entry.area ? entry.area.replace('ロング', 'L').replace('サイド', 'SD') : '−';
+        let courseText = entry.course || '−';
+        document.getElementById('val-2').innerText = `${areaText} / ${courseText}`;
+        document.getElementById('val-3').innerText = entry.result || '−';
+
+        for(let i=1; i<=3; i++) {
+            let chip = document.getElementById('chip-'+i);
+            if (chip) {
+                chip.className = (i === currentStep) ? 'chip active' : (i < currentStep ? 'chip clickable' : 'chip');
+            }
+        }
+        
+        document.querySelectorAll('.step-view').forEach(el => el.classList.remove('active'));
+        const activeView = document.getElementById('step-' + currentStep);
+        if (activeView) activeView.classList.add('active');
+
+        document.querySelectorAll('#player-buttons .btn').forEach(b => {
+            let numT = (b.querySelector('.num') ? b.querySelector('.num').innerText : '').replace('#','').trim();
+            let nameT = (b.querySelector('.name') ? b.querySelector('.name').innerText : '').trim();
+            let btnTxt = (numT && nameT) ? (numT + ' ' + nameT) : (numT || nameT);
+            let entTxt = entry.player ? entry.player.replace('#','').trim() : '';
+            b.classList.toggle('active', btnTxt === entTxt);
+        });
+
+        document.querySelectorAll('#default-position-buttons .btn-position').forEach(b => {
+            b.classList.toggle('active', entry.player === b.innerText);
+        });
+        
+        document.querySelectorAll('#court-map-svg .court-slice').forEach(s => s.classList.remove('active-slice'));
+        if(entry.mapKey && entry.situation !== '7m') {
+            const activeSlice = document.getElementById('slice-' + entry.mapKey);
+            if(activeSlice) activeSlice.classList.add('active-slice');
+        }
+        
+        const otherBtn = document.getElementById('btn-map-OTHER');
+        if (otherBtn) otherBtn.classList.toggle('active', entry.area === 'other'|| entry.area === 'その他');
+
+        document.querySelectorAll('.svg-rect').forEach(r => r.classList.remove('active-rect'));
+        if(entry.course) {
+            const rc = document.getElementById('rc-' + entry.course);
+            if(rc) rc.classList.add('active-rect');
+        }
+    }
+
+    // ==========================================
+    // 3. データ保存・履歴管理
+    // ==========================================
+    function showNotification(msg) {
+        const toast = document.getElementById('toast');
+        toast.innerText = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    function updateLiveMatchScore() {
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        let selfScore = allData.filter(r => r.team === '自チーム' && r.result === 'ゴール').length;
+        let enemyScore = allData.filter(r => r.team === '相手チーム' && r.result === 'ゴール').length;
+        
+        const inputScoreEl = document.getElementById('input-match-score');
+        if (inputScoreEl) inputScoreEl.innerText = `${selfScore} - ${enemyScore}`;
+        
+        const analysisScoreEl = document.getElementById('analysis-total-score');
+        if (analysisScoreEl) analysisScoreEl.innerText = `${selfScore} - ${enemyScore}`;
+    }
+
+    function refreshAllViews() {
+        updateLiveMatchScore();
+        generateDashboardInsight();
+        
+        if (document.getElementById('view-analysis').classList.contains('active-view')) {
+            generateDetailedAnalysis();
+        }
+        if (document.getElementById('view-data').classList.contains('active-view')) {
+            generateMatchList();
+        }
+        renderRecentHistory();
+    }
+
+    function resetToStep1() {
+        entry.player = null; 
+        if (entry.situation !== '7m') { entry.area = null; entry.mapKey = null; }
+        entry.course = null; 
+        entry.result = null;
+        currentStep = 1;
+        updateStepUI();
+    }
+
+    function saveData() {
+        const A = teamAName() || 'A校';
+        const B = teamBName() || 'B校';
+        const opponent = A + ' vs ' + B; // 「対戦カード」として記録（集計くんの対戦校列と互換）
+        const mDate = document.getElementById('match-date').value || '';
+        const record = {
+            id: 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+            ...entry,
+            opponent: opponent,
+            teamA: A,
+            teamB: B,
+            matchDate: mDate,
+            period: currentPeriod,
+            matchTime: formatTime(timerSeconds), 
+            timestamp: new Date().toLocaleString() 
+        };
+        
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        allData.push(record);
+        localStorage.setItem('kansen_dashboard_data', JSON.stringify(allData));
+
+        showNotification('記録完了');
+
+        let nextTeam = (entry.team === '自チーム') ? '相手チーム' : '自チーム';
+        let nextSit = 'セット';
+        
+        if (entry.result === 'ゴール') {
+            nextSit = 'セット';
+        } else if (entry.result === 'ターンオーバー') {
+            nextSit = '速攻';
+        } else if (entry.result === 'セーブ' || entry.result === 'ポスト/バー') {
+            nextSit = '速攻';
+        } else if (entry.result === '枠外・ミス') {
+            nextSit = 'セット';
+        }
+        
+        selectTeamSituation(nextTeam, nextSit);
+        refreshAllViews();
+    }
+
+    function renderRecentHistory() {
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        const container = document.getElementById('history-chips-container');
+        container.innerHTML = '';
+
+        if (allData.length === 0) {
+            container.innerHTML = '<span style="font-size:0.75rem; color:#6b7280; padding-left:4px;">履歴なし</span>';
+            return;
+        }
+
+        let recentRecords = allData.slice(-5).reverse();
+        recentRecords.forEach(r => {
+            let chip = document.createElement('div');
+            chip.className = 'history-chip';
+
+            let pText = r.player ? r.player.split(' ')[0] : 'ミス';
+            let aText = r.area ? r.area.replace('ウィング', 'WG').replace('バック', 'B').replace('サイド', 'SD').replace('ロング', 'L') : '';
+            let cText = r.course ? r.course : '';
+            let rText = r.result ? r.result : '';
+
+            let label = `[${r.team}] ${pText}`;
+            if (aText && r.result !== 'ターンオーバー') label += ` ${aText}`;
+            if (cText && r.result !== 'ターンオーバー') label += ` ${cText}`;
+            if (r.result !== 'ターンオーバー') label += ` ${rText}`;
+
+            chip.innerHTML = `
+                <span>${label}</span>
+                <button class="btn-del-history" onclick="deleteHistoryRecord('${r.id}')">×</button>
+            `;
+            container.appendChild(chip);
+        });
+    }
+
+    function undoLastAction() {
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        if (allData.length === 0) return alert('取り消すデータがありません。');
+        allData.pop();
+        localStorage.setItem('kansen_dashboard_data', JSON.stringify(allData));
+        showNotification('1手取り消しました');
+        resetToStep1();
+        refreshAllViews();
+    }
+
+    function deleteHistoryRecord(recordId) {
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        let filteredData = allData.filter(r => r.id !== recordId);
+        if (allData.length === filteredData.length) return;
+        localStorage.setItem('kansen_dashboard_data', JSON.stringify(filteredData));
+        showNotification('データを削除しました');
+        resetToStep1();
+        refreshAllViews();
+    }
+
+    // ==========================================
+    // 4. 動的ヒートマップとサマリーの生成 (記録画面)
+    // ==========================================
+    function getTop3Html(records) {
+        let pMap = {}; let pCourseMap = {}; 
+        records.forEach(r => {
+            if(r.result === 'ゴール') { 
+                let pName = r.player || '未登録';
+                pMap[pName] = (pMap[pName] || 0) + 1; 
+                if(!pCourseMap[pName]) pCourseMap[pName] = { up:0, down:0, left:0, right:0 };
+                let c = r.course;
+                if(['左上', '中上', '右上'].includes(c)) pCourseMap[pName].up++;
+                if(['左下', '中下', '右下'].includes(c)) pCourseMap[pName].down++;
+                if(['左上', '左中', '左下'].includes(c)) pCourseMap[pName].left++;
+                if(['右上', '右中', '右下'].includes(c)) pCourseMap[pName].right++;
+            }
+        });
+        let pSorted = Object.keys(pMap).map(k => ({name: k, goals: pMap[k]})).sort((a,b)=>b.goals - a.goals);
+        
+        let html = '';
+        for(let i=0; i<3; i++) {
+            if(pSorted[i]) {
+                let name = pSorted[i].name; let g = pSorted[i].goals;
+                let cStats = pCourseMap[name] || { up:0, down:0, left:0, right:0 };
+                html += `<div class="insight-item">
+                    <span><span class="rank-num">${i+1}位</span>${name}</span>
+                    <span style="font-weight:bold; color:var(--accent);">${g}得点 <span style="font-size:0.65rem; color:var(--text-sub); font-weight:normal;">(上${cStats.up} 下${cStats.down} 左${cStats.left} 右${cStats.right})</span></span>
+                </div>`;
+            } else {
+                html += `<div class="insight-item"><span style="color:#6b7280;"><span class="rank-num">${i+1}位</span>記録なし</span><span style="color:#6b7280;">0得点</span></div>`;
+            }
+        }
+        return html;
+    }
+
+    function renderCourseHeatmap(prefix, records) {
+        let heatCourses = { '左上':0,'中上':0,'右上':0,'左中':0,'中央':0,'右中':0,'左下':0,'中下':0,'右下':0 };
+        let saveCourses = { '左上':0,'中上':0,'右上':0,'左中':0,'中央':0,'右中':0,'左下':0,'中下':0,'右下':0 };
+        let missCourses = { '左上':0,'中上':0,'右上':0,'左中':0,'中央':0,'右中':0,'左下':0,'中下':0,'右下':0 };
+
+        // 枠外16マスの集計
+        let outerCourses = {};
+        FRAME_OUT_COURSES.forEach(k => outerCourses[k] = 0);
+
+        let maxTotalCount = 0;
+
+        records.forEach(r => {
+            if(!r.course || r.result === 'ターンオーバー') return;
+            let cKey = r.course === '真ん中' ? '中央' : r.course;
+            if(heatCourses[cKey] !== undefined) {
+                if(r.result === 'ゴール') heatCourses[cKey]++;
+                else if(r.result === 'セーブ' || r.result === 'ポスト/バー') saveCourses[cKey]++;
+                else if(r.result === '枠外・ミス') missCourses[cKey]++;
+            } else if(outerCourses[cKey] !== undefined) {
+                outerCourses[cKey]++;
+            }
+        });
+
+        // 観戦Ver.：攻撃チーム視点に統一。
+        //   枠内 → 得点率が高いほど濃い赤（本数は枠線の太さで表現）
+        //   枠外 → 外した本数が多いほど濃い赤系
+        const INNER = ['左上','中上','右上','左中','中央','右中','左下','中下','右下'];
+        INNER.forEach(c => {
+            let total = heatCourses[c] + saveCourses[c] + missCourses[c];
+            if (total > maxTotalCount) maxTotalCount = total;
+        });
+
+        INNER.forEach(c => {
+            let cell = document.getElementById(prefix + '-heat-' + c);
+            if(!cell) return;
+
+            let gCount = heatCourses[c];
+            let sCount = saveCourses[c];
+            let mCount = missCourses[c];
+            let totalCount = gCount + sCount + mCount;
+
+            // 数字は「得点 / 本数」
+            cell.querySelector('.num').innerText = `${gCount}/${totalCount}`;
+
+            // 枠線の太さ＝そのコースを狙った本数
+            if (maxTotalCount > 0 && totalCount > 0) {
+                let bw = 1 + (totalCount / maxTotalCount) * 4;
+                cell.style.borderWidth = `${bw}px`;
+                cell.style.borderColor = 'rgba(240, 168, 96, 0.9)';
+            } else {
+                cell.style.borderWidth = `1px`;
+                cell.style.borderColor = 'var(--border-color)';
+            }
+
+            // 塗り＝得点率（高いほど濃い赤）
+            if (totalCount === 0) {
+                cell.style.backgroundColor = 'var(--bg-element)';
+                cell.style.color = 'var(--text-main)';
+            } else {
+                let rate = gCount / totalCount;           // 0.0〜1.0
+                let opacity = 0.12 + rate * 0.78;
+                cell.style.backgroundColor = `rgba(239, 68, 68, ${opacity})`;
+                cell.style.color = rate >= 0.4 ? '#ffffff' : 'var(--text-main)';
+            }
+        });
+
+        // 枠外16マス（全て「枠外・ミス」）：外した本数が多いほど濃い赤系（オレンジ寄り）
+        let maxOuter = 0;
+        FRAME_OUT_COURSES.forEach(c => { if(outerCourses[c] > maxOuter) maxOuter = outerCourses[c]; });
+        FRAME_OUT_COURSES.forEach(c => {
+            let cell = document.getElementById(prefix + '-heat-' + c);
+            if(!cell) return;
+            let cnt = outerCourses[c];
+            let numEl = cell.querySelector('.num');
+            if(numEl) numEl.innerText = cnt;
+            if(cnt > 0 && maxOuter > 0) {
+                let p = cnt / maxOuter;
+                cell.style.backgroundColor = `rgba(249, 115, 22, ${0.25 + p * 0.65})`;
+                cell.style.color = '#ffffff';
+                cell.style.borderWidth = `${1 + p * 4}px`;
+                cell.style.borderColor = 'rgba(249, 115, 22, 0.9)';
+            } else {
+                cell.style.backgroundColor = 'rgba(30, 41, 59, 0.6)';
+                cell.style.color = 'var(--text-sub)';
+                cell.style.borderWidth = '1px';
+                cell.style.borderColor = 'var(--border-color)';
+            }
+        });
+    }
+
+    function renderAreaHeatmap(prefix, records) {
+        let areaHeatMap = { '左サイド':0, '右サイド':0, '左45':0, 'センター':0, '右45':0, '左45ロング':0, 'センターロング':0, '右45ロング':0, 'ポスト':0 };
+        let maxAreaHeat = 0;
+        records.forEach(r => {
+            if(r.result === 'ゴール' && r.area) {
+                let a = r.area;
+                if(a === '左ウィング') a = '左サイド';
+                if(a === '右ウィング') a = '右サイド';
+                if(a === '左バック') a = '左45';
+                if(a === '右バック') a = '右45';
+                if(a === 'LBロング') a = '左45ロング';
+                if(a === 'CBロング') a = 'センターロング';
+                if(a === 'RBロング') a = '右45ロング';
+                if(a === 'ピボット') a = 'ポスト';
+                
+                if(areaHeatMap[a] !== undefined) {
+                    areaHeatMap[a]++; 
+                    if(areaHeatMap[a] > maxAreaHeat) maxAreaHeat = areaHeatMap[a];
+                }
+            }
+        });
+
+        const mapping = { '左サイド': 'LW', '右サイド': 'RW', '左45': 'LB', 'センター': 'CB', '右45': 'RB', '左45ロング': 'LBL', 'センターロング': 'CBL', '右45ロング': 'RBL', 'ポスト': 'PV' };
+        for(let areaName in mapping) {
+            let pathEl = document.getElementById(prefix + '-slice-' + mapping[areaName]);
+            if(pathEl) {
+                let count = areaHeatMap[areaName] || 0;
+                if(count > 0 && maxAreaHeat > 0) {
+                    let p = count / maxAreaHeat;
+                    // 得点が多いエリアほど濃い赤（黄 → 赤のグラデーション）
+                    let rC = Math.round(254 + (239 - 254) * p);
+                    let gC = Math.round(240 + (68 - 240) * p);
+                    let bC = Math.round(138 + (68 - 138) * p);
+                    let opacity = 0.45 + p * 0.45;
+                    pathEl.style.fill = `rgba(${rC}, ${gC}, ${bC}, ${opacity})`; 
+                    pathEl.style.stroke = 'rgba(255, 255, 255, 0.7)';
+                    pathEl.style.strokeWidth = 1 + (p * 3);
+                } else {
+                    pathEl.style.fill = 'var(--bg-element)'; 
+                    pathEl.style.stroke = 'rgba(255,255,255,0.1)';
+                    pathEl.style.strokeWidth = 2.5;
+                }
+            }
+        }
+    }
+
+    function generateDashboardInsight() {
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        
+        let selfDataOnly = allData.filter(r => (r.team || SIDE_A) === SIDE_A);
+        let enemyDataOnly = allData.filter(r => r.team === SIDE_B);
+
+        // 攻撃中のチーム＝主役。守備側＝その相手（右カラムは全てこの視点で揃える）
+        let currentTeamData = entry.team === SIDE_A ? selfDataOnly : enemyDataOnly;
+        let opponentTeamData = entry.team === SIDE_A ? enemyDataOnly : selfDataOnly;
+        let setOfData = currentTeamData.filter(r => r.situation === 'セット');
+        let setTotal = setOfData.length;
+        let setGoals = 0, setShootFails = 0, setMissFails = 0;
+        
+        setOfData.forEach(r => {
+            if(r.result === 'ゴール') setGoals++;
+            else if(['セーブ', 'ポスト/バー', '枠外・ミス'].includes(r.result)) setShootFails++;
+            else if(r.result === 'ターンオーバー') setMissFails++;
+        });
+        
+        let setRate = setTotal > 0 ? Math.round((setGoals/setTotal)*100) : 0;
+        document.getElementById('set-total').innerText = setTotal;
+        document.getElementById('set-rate').innerText = setRate + '%';
+        document.getElementById('set-goal-txt').innerText = setGoals;
+        document.getElementById('set-fail-txt').innerText = setShootFails;
+        document.getElementById('set-miss-txt').innerText = setMissFails;
+
+        let barBox = document.getElementById('set-bar');
+        barBox.innerHTML = '';
+        if(setTotal > 0) {
+            let pGoal = (setGoals/setTotal)*100; let pFail = (setShootFails/setTotal)*100; let pMiss = (setMissFails/setTotal)*100;
+            if(pGoal > 0) barBox.innerHTML += `<div class="stat-bar-success" style="width:${pGoal}%;"></div>`;
+            if(pFail > 0) barBox.innerHTML += `<div class="stat-bar-fail" style="width:${pFail}%;"></div>`;
+            if(pMiss > 0) barBox.innerHTML += `<div class="stat-bar-miss" style="width:${pMiss}%;"></div>`;
+        } else {
+            barBox.innerHTML = `<div style="width:100%; background:#334155;"></div>`;
+        }
+
+        // 攻撃中チームのシュートが止められた／外れた後、相手がどう出たか
+        let enemyFastCount = currentTeamData.filter(r => ['セーブ', 'ポスト/バー'].includes(r.result)).length;
+        let enemySetCount = currentTeamData.filter(r => r.result === '枠外・ミス').length;
+        document.getElementById('ins-enemy-fast').innerText = enemyFastCount + '回';
+        document.getElementById('ins-enemy-set').innerText = enemySetCount + '回';
+
+        // 得点源TOP3も攻撃中チームのもの
+        document.getElementById('ins-top3-enemy').innerHTML = getTop3Html(currentTeamData);
+
+        // ヒートマップは常に「攻撃中チームの攻撃パターン」を表示
+        renderCourseHeatmap('self', currentTeamData);
+        renderAreaHeatmap('self', currentTeamData);
+    }
+
+    // ==========================================
+    // 5. 本格分析：詳細テーブルモード
+    // ==========================================
+    let detailedAnalysisTeam = '自チーム';
+    let currentTableType = 'situation';
+
+    function setDetailedAnalysisTeam(teamVal) {
+        detailedAnalysisTeam = teamVal;
+        document.getElementById('f-btn-self').classList.toggle('active', teamVal === '自チーム');
+        document.getElementById('f-btn-enemy').classList.toggle('active', teamVal === '相手チーム');
+        renderTable();
+    }
+
+    function showTable(type) {
+        currentTableType = type;
+        document.querySelectorAll('[id^="tbl-btn-"]').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('tbl-btn-' + type).classList.add('active');
+        renderTable();
+    }
+
+    function renderTable() {
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        let fData = allData.filter(r => (r.team || '自チーム') === detailedAnalysisTeam);
+        
+        let key = currentTableType;
+        let map = {};
+        fData.forEach(r => {
+            if(r.result === 'ターンオーバー') return;
+            let item = r[key] || '未分類';
+            if(!map[item]) map[item] = { total:0, goal:0, save:0, miss:0 };
+            map[item].total++;
+            if(r.result === 'ゴール') map[item].goal++;
+            else if(['セーブ', 'ポスト/バー'].includes(r.result)) map[item].save++;
+            else map[item].miss++; 
+        });
+        
+        let html = '';
+        for(let k in map) {
+            let s = map[k]; let rate = s.total > 0 ? Math.round((s.goal / s.total) * 100) : 0;
+            let rc = rate >= 50 ? 'rate-high' : (rate <= 30 ? 'rate-low' : '');
+            html += `<tr><td><strong>${k}</strong></td><td>${s.total}</td><td>${s.goal}</td><td>${s.save}</td><td>${s.miss}</td><td class="${rc}">${rate}%</td></tr>`;
+        }
+        document.getElementById('t-full-data').innerHTML = html || '<tr><td colspan="6">データがありません</td></tr>';
+    }
+
+    function generateDetailedAnalysis() {
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        
+        renderTable();
+
+        let goalsData = allData.filter(r => r.result === 'ゴール');
+        let htmlRunning = ''; let selfScore = 0; let enemyScore = 0;
+        goalsData.forEach(r => {
+            let t = r.team || SIDE_A;
+            if(t === SIDE_A) selfScore++; else enemyScore++;
+            let color = t === SIDE_A ? 'color:#7fd4ee;' : 'color:#e8c9a8;';
+            let periodTxt = r.period || '前半';
+            // 記録に残っている学校名を優先（無ければ現在の設定名）
+            let teamTxt = (t === SIDE_A) ? (r.teamA || sideLabel(SIDE_A)) : (r.teamB || sideLabel(SIDE_B));
+            htmlRunning = `<tr><td>${periodTxt} ${r.matchTime||'--:--'}</td><td style="${color}">${teamTxt}</td><td>${r.player||'不明'}</td><td style="font-weight:bold; color:var(--accent);">${selfScore} - ${enemyScore}</td></tr>` + htmlRunning;
+        });
+        document.getElementById('t-full-running').innerHTML = htmlRunning || '<tr><td colspan="4">得点ログはありません</td></tr>';
+        document.getElementById('analysis-total-score').innerText = `${selfScore} - ${enemyScore}`;
+    }
+
+    // ==========================================
+    // 6. データ管理 (CSV エクスポート / インポート)
+    // ==========================================
+    
+    // CSV生成用ヘルパー関数
+    function convertRecordsToCSV(records) {
+        // 末尾に「A校」「B校」を追加（集計くんはヘッダー名で読むため、従来の列はそのまま使えます）
+        let csv = '"ID","記録日時","試合日","前後半","試合時間","対戦校","チーム","局面","選手","エリア","マップキー","コース","結果","A校","B校"\n';
+        records.forEach(r => {
+            csv += `"${r.id||''}","${r.timestamp||''}","${r.matchDate||''}","${r.period||'前半'}","${r.matchTime||''}","${r.opponent||''}","${r.team||''}","${r.situation||''}","${r.player||''}","${r.area||''}","${r.mapKey||''}","${r.course||''}","${r.result||''}","${r.teamA||''}","${r.teamB||''}"\n`;
+        });
+        return csv;
+    }
+
+    function generateMatchList() {
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        let matchGroups = {};
+        
+        allData.forEach(r => {
+            let key = (r.matchDate || '未設定') + ' / ' + (r.opponent || '未設定');
+            if(!matchGroups[key]) matchGroups[key] = { date: r.matchDate, opponent: r.opponent, count: 0, records: [] };
+            matchGroups[key].count++;
+            matchGroups[key].records.push(r);
+        });
+
+        const container = document.getElementById('data-match-list');
+        container.innerHTML = '';
+        
+        let keys = Object.keys(matchGroups).sort((a,b) => b.localeCompare(a));
+        if (keys.length === 0) {
+            container.innerHTML = '<div style="color:var(--text-sub); font-size: 0.9rem;">記録された試合データがありません。</div>';
+            return;
+        }
+        
+        keys.forEach(k => {
+            let group = matchGroups[k];
+            let row = document.createElement('div');
+            row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: var(--bg-element); padding: 10px 15px; border-radius: 6px; border: 1px solid var(--border-color);';
+            
+            let title = `<strong style="color:var(--text-main); font-size:1.05rem;">${group.date || '日付未定'}</strong><br><span style="color:var(--text-sub); font-size:0.85rem;">対戦校: ${group.opponent || '未入力'} (${group.count}件の記録)</span>`;
+            
+            let btn = document.createElement('button');
+            btn.className = 'btn';
+            btn.style.padding = '8px 15px';
+            btn.style.fontSize = '0.85rem';
+            btn.innerText = 'CSV書き出し';
+            btn.onclick = function() {
+                exportMatchCSV(group.records, group.date, group.opponent);
+            };
+            
+            let leftDiv = document.createElement('div');
+            leftDiv.innerHTML = title;
+            
+            row.appendChild(leftDiv);
+            row.appendChild(btn);
+            container.appendChild(row);
+        });
+    }
+
+    function exportMatchCSV(records, date, opponent) {
+        let csvStr = convertRecordsToCSV(records);
+        let blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvStr], { type: 'text/csv;charset=utf-8;' });
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        let safeDate = date || '未設定';
+        let safeOpponent = opponent || '未設定';
+        a.download = `観戦くん_${safeDate}_${safeOpponent}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function exportAllCSV() {
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        if(allData.length === 0) return alert('書き出すデータがありません。');
+        let csvStr = convertRecordsToCSV(allData);
+        let blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvStr], { type: 'text/csv;charset=utf-8;' });
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        let d = new Date();
+        a.download = `観戦くん_全データバックアップ_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function importCSVData() {
+        let fileInput = document.getElementById('import-file');
+        let file = fileInput.files[0];
+        if (!file) return alert('ファイルを選択してください。');
+
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                let lines = e.target.result.split(/\r\n|\n/);
+                if(lines.length < 2) return alert('有効なデータが見つかりません。');
+                
+                let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+                let currentIds = new Set(allData.map(r => r.id));
+                let addedCount = 0;
+                let updatedCount = 0;
+
+                for(let i=1; i<lines.length; i++) {
+                    let line = lines[i].trim();
+                    if(!line) continue;
+
+                    let values = line.split('","');
+                    if(values.length > 0) {
+                        values[0] = values[0].replace(/^"/, '');
+                        values[values.length-1] = values[values.length-1].replace(/"$/, '');
+                    }
+
+                    if(values.length < 12) continue;
+
+                    let rec = {
+                        id: values[0],
+                        timestamp: values[1],
+                        matchDate: values[2],
+                        period: values[3],
+                        matchTime: values[4],
+                        opponent: values[5],
+                        team: values[6],
+                        situation: values[7],
+                        player: values[8] === '' ? null : values[8],
+                        area: values[9] === '' ? null : values[9],
+                        mapKey: values[10] === '' ? null : values[10],
+                        course: values[11] === '' ? null : values[11],
+                        result: values[12] === '' ? null : values[12],
+                        // 観戦Ver.で追加した学校名列（無い古いCSVでも空でOK）
+                        teamA: values[13] || '',
+                        teamB: values[14] || ''
+                    };
+
+                    if (currentIds.has(rec.id)) {
+                        let idx = allData.findIndex(r => r.id === rec.id);
+                        allData[idx] = rec;
+                        updatedCount++;
+                    } else {
+                        allData.push(rec);
+                        addedCount++;
+                    }
+                }
+                
+                localStorage.setItem('kansen_dashboard_data', JSON.stringify(allData));
+                alert(`CSVインポート完了:\n${addedCount}件を追加\n${updatedCount}件を更新（上書き）しました。`);
+                fileInput.value = '';
+                refreshAllViews();
+            } catch(err) {
+                alert('CSVファイルの読み込みに失敗しました。');
+                console.error(err);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function clearAllData() {
+        if(confirm("すべての試合記録データを完全に削除しますか？\n(事前にCSVエクスポートしておくことをお勧めします)")) {
+            localStorage.removeItem('kansen_dashboard_data');
+            resetToStep1();
+            refreshAllViews();
+            alert('データを完全にクリアしました。');
+        }
+    }
+
+    // ==========================================
+    // 初期化処理
+    // ==========================================
+    refreshTeamButtons();
+    refreshTeamLabels();
+    renderPlayerButtons();
+    refreshAllViews();
+
+    const dateInput = document.getElementById('match-date');
+    if (dateInput) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        dateInput.value = `${yyyy}-${mm}-${dd}`;
+    }
+</script>
+
+<!-- Service Worker（手動更新・オフライン対応） -->
+<script>
+(function () {
+    if (!('serviceWorker' in navigator)) return;
+    var swReg = null;
+    function showBanner(reg) {
+        swReg = reg;
+        var b = document.getElementById('update-banner');
+        if (b) b.style.display = 'block';
+    }
+    // 更新ボタンが押されたら、待機中の新バージョンを有効化
+    window.applyUpdate = function () {
+        if (swReg && swReg.waiting) swReg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    };
+    // 新バージョンが有効化されたら一度だけリロード
+    var refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+    });
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js').then(function (reg) {
+            // 既に待機中の新バージョンがあれば案内
+            if (reg.waiting && navigator.serviceWorker.controller) showBanner(reg);
+            reg.addEventListener('updatefound', function () {
+                var nw = reg.installing;
+                if (!nw) return;
+                nw.addEventListener('statechange', function () {
+                    // 既存アプリがある状態で新版がインストール完了 → 更新案内
+                    if (nw.state === 'installed' && navigator.serviceWorker.controller) showBanner(reg);
+                });
+            });
+        }).catch(function () { /* file:// など未対応環境は無視 */ });
+    });
+})();
+</script>
+</body>
+</html>
