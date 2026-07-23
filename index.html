@@ -222,6 +222,16 @@
         .ros-preset-tools button { background: none; border: none; color: var(--accent); font-size: 0.8rem; cursor: pointer; text-decoration: underline; padding: 0; }
         .player-empty-hint { font-size: 0.85rem; color: var(--text-sub, #94a3b8); padding: 10px 0; }
 
+        /* ---- 名簿共有タブ ---- */
+        .share-tools { display: flex; gap: 10px; margin-bottom: 10px; }
+        .share-tools button { background: none; border: none; color: var(--accent); font-size: 0.8rem; cursor: pointer; text-decoration: underline; padding: 0; }
+        .share-sec-title { font-size: 0.8rem; color: var(--text-sub); font-weight: bold; letter-spacing: 1px; margin: 10px 0 2px; }
+        .share-row { display: flex; align-items: center; gap: 10px; background: var(--bg-element); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 10px; cursor: pointer; }
+        .share-row input { width: 16px; height: 16px; flex-shrink: 0; }
+        .share-row .s-name { color: var(--text-main); font-size: 0.92rem; font-weight: bold; }
+        .share-row .s-sub { color: var(--text-sub); font-size: 0.8rem; margin-left: auto; }
+        .share-empty { font-size: 0.85rem; color: var(--text-sub); padding: 10px 0; }
+
         /* ===== スマホ縦画面 対応（横幅640px以下） ===== */
         /* iPad/PCの「スクロールしない横並び固定」レイアウトを、
            スマホでは「縦に積んで画面全体をスクロール」に切り替える。 */
@@ -293,6 +303,7 @@
     <button class="tab-btn active" id="tab-input" onclick="switchTab('input')">記録画面</button>
     <button class="tab-btn" id="tab-analysis" onclick="switchTab('analysis')">本格分析</button>
     <button class="tab-btn" id="tab-data" onclick="switchTab('data')">データ管理</button>
+    <button class="tab-btn" id="tab-share" onclick="switchTab('share')">名簿共有</button>
     <button class="tab-btn" id="tab-info" onclick="switchTab('info')">アプリ情報</button>
 </div>
 
@@ -654,17 +665,70 @@
 </div>
 
 <!-- =========================================================
+     画面D2: 名簿共有タブ（選手・チーム名簿のCSV書き出し／取り込み）
+     ========================================================= -->
+<div id="view-share" class="main-container">
+    <div style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; height: 100%;">
+
+            <!-- 左：名簿の書き出し -->
+            <div style="flex: 1.2; min-width: 300px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; display: flex; flex-direction: column; max-height: 100%;">
+                <h2 style="font-size: 1.1rem; color: var(--text-main); margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">名簿データの書き出し (CSV)</h2>
+                <div style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 10px;">登録した学校ごとの選手名簿・対戦校リストだけをCSVにします。試合の記録データは含まれません。渡した相手が「取り込み」すれば、そのまま同じ名簿が使えます。</div>
+                <div class="share-tools">
+                    <button onclick="shareCheckAll(true)">すべて選択</button>
+                    <button onclick="shareCheckAll(false)">すべて解除</button>
+                </div>
+                <div id="share-export-list" style="display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; padding-right: 5px; margin-bottom: 12px;">
+                    <!-- JSにて動的生成 -->
+                </div>
+                <button class="btn" style="width: 100%; background: var(--accent); border-color: var(--accent); color: var(--bg-base); padding: 12px; font-weight: bold;" onclick="exportRosterCSV()">チェックした名簿をCSVで書き出す</button>
+            </div>
+
+            <!-- 右：名簿の取り込み -->
+            <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px;">
+                <div style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px;">
+                    <h2 style="font-size: 1.1rem; color: var(--text-main); margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">名簿データの取り込み</h2>
+                    <div style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 12px;">もらった名簿CSVを読み込みます。取り込んだ内容はこのアプリに自動保存され、次回からそのまま使えます。<br>※ 分析くんで書き出した名簿もそのまま取り込めます（自チーム名簿は、その名前の学校として登録されます）。</div>
+                    <input type="file" id="share-import-file" accept=".csv" style="margin-bottom: 12px; color: var(--text-main); width: 100%; font-size: 0.9rem;">
+                    <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color: var(--text-sub); margin-bottom: 12px; cursor:pointer;">
+                        <input type="checkbox" id="share-overwrite" checked style="width:16px; height:16px;">
+                        同じ名前の名簿があったら上書きする（外すと今ある名簿を残します）
+                    </label>
+                    <button class="btn" style="width: 100%; background: #0284c7; border-color: #0284c7; color: white; padding: 12px;" onclick="importRosterCSV()">選択したファイルから取り込む</button>
+                    <div id="share-import-result" style="font-size:0.85rem; color: var(--text-main); margin-top: 12px; white-space: pre-line;"></div>
+                </div>
+
+                <div style="background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px;">
+                    <h2 style="font-size: 1.1rem; color: var(--text-main); margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">CSVの中身について</h2>
+                    <div style="font-size: 0.82rem; color: var(--text-sub); line-height: 1.7;">
+                        4列だけのシンプルな形式です。Excelで直接作ったり直したりもできます。<br>
+                        <code style="color: var(--text-main);">種別, グループ, 背番号, 選手名</code>
+                        <ul style="padding-left: 18px; margin: 8px 0 0;">
+                            <li><b>学校名簿</b>：グループ＝学校名</li>
+                            <li><b>対戦校リスト</b>：グループ＝カテゴリ、学校名は「選手名」列に書きます</li>
+                            <li><b>自チーム名簿</b>：分析くん用。観戦くんでは学校名簿として取り込みます</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
      画面D: アプリ情報タブ
      ========================================================= -->
 <div id="view-info" class="main-container">
     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; padding: 30px;">
         <h1 style="color: var(--accent); margin: 0; font-family: 'Oswald', sans-serif; letter-spacing: 2px; font-size: 2.5rem;">観戦くん by Danno</h1>
-        <div style="color: var(--text-sub); font-size: 1.2rem;">Ver. 1.0.0</div>
+        <div style="color: var(--text-sub); font-size: 1.2rem;">Ver. 1.1.0</div>
         <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; max-width: 520px; line-height: 1.6;">
             分析くん 観戦Ver.（他校 VS 他校の記録用）<br>
             最終更新: 2026-07-23<br><br>
             A校・B校の2チームを選んで記録します。選手ボタンは選んだ学校に自動で連動し、学校ごとに保存されます（未登録の学校は背番号 #2〜#16 を初期表示）。<br>
             記録画面の分析は両チームとも「攻撃側の視点」に統一。得点コースは得点率が高いほど赤く、枠外は本数が多いほど赤く表示されます。<br>
+            「名簿共有」タブから、登録した選手名簿・対戦校リストだけをCSVで書き出し／取り込みでき、他の人と共有できます（取り込んだ名簿は自動保存。分析くんとも同じ形式）。<br>
             データは分析くんとは別に保存されます。CSVは集計くんでもそのまま読み込めます。
         </div>
     </div>
@@ -1148,15 +1212,18 @@
         document.getElementById('tab-input').classList.toggle('active', tabName === 'input');
         document.getElementById('tab-analysis').classList.toggle('active', tabName === 'analysis');
         document.getElementById('tab-data').classList.toggle('active', tabName === 'data');
+        document.getElementById('tab-share').classList.toggle('active', tabName === 'share');
         document.getElementById('tab-info').classList.toggle('active', tabName === 'info');
-        
+
         document.getElementById('view-input').classList.toggle('active-view', tabName === 'input');
         document.getElementById('view-analysis').classList.toggle('active-view', tabName === 'analysis');
         document.getElementById('view-data').classList.toggle('active-view', tabName === 'data');
+        document.getElementById('view-share').classList.toggle('active-view', tabName === 'share');
         document.getElementById('view-info').classList.toggle('active-view', tabName === 'info');
-        
+
         if(tabName === 'analysis') generateDetailedAnalysis();
         if(tabName === 'data') generateMatchList();
+        if(tabName === 'share') renderShareLists();
     }
 
     function selectTeamSituation(teamVal, sitVal) {
@@ -1896,6 +1963,201 @@
             refreshAllViews();
             alert('データを完全にクリアしました。');
         }
+    }
+
+    // ==========================================
+    // 名簿の共有（選手・チーム名簿だけをCSVで受け渡し）
+    // 分析くん／観戦くん 共通フォーマット：
+    //   "種別","グループ","背番号","選手名"
+    //     学校名簿      … グループ＝学校名
+    //     対戦校リスト  … グループ＝カテゴリ、学校名は「選手名」列
+    //     自チーム名簿  … 分析くん用。観戦くんでは学校名簿として取り込む
+    // ==========================================
+    const SHARE_T_SELF   = '自チーム名簿';
+    const SHARE_T_SCHOOL = '学校名簿';
+    const SHARE_T_LIST   = '対戦校リスト';
+    const SHARE_HEADER   = '"種別","グループ","背番号","選手名"';
+    const SHARE_SEP      = '@@';  // チェック値を「種別＋グループ」に組むための区切り
+
+    function shareEsc(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '').replace(/[\r\n]+/g, ' ') + '"'; }
+    function shareRow(a, b, c, d) { return [a, b, c, d].map(shareEsc).join(','); }
+
+    // Excelで編集し直したCSV（引用符なし）も読めるパーサー
+    function shareParseLine(line) {
+        let out = [], cur = '', inQ = false;
+        for (let i = 0; i < line.length; i++) {
+            let ch = line[i];
+            if (inQ) {
+                if (ch === '"') { if (line[i+1] === '"') { cur += '"'; i++; } else inQ = false; }
+                else cur += ch;
+            } else {
+                if (ch === '"') inQ = true;
+                else if (ch === ',') { out.push(cur); cur = ''; }
+                else cur += ch;
+            }
+        }
+        out.push(cur);
+        return out.map(s => s.trim());
+    }
+
+    // 書き出し候補の一覧をつくる
+    function shareExportItems() {
+        let items = [];
+        Object.keys(schoolRosters).sort().forEach(nm => {
+            let arr = schoolRosters[nm] || [];
+            let named = arr.filter(p => (p.nm || '').trim()).length;
+            items.push({ type: SHARE_T_SCHOOL, group: nm, sub: arr.length + '人' + (named ? '（名前入り' + named + '人）' : '（背番号のみ）') });
+        });
+        Object.keys(teamPresets).forEach(cat => {
+            let arr = teamPresets[cat] || [];
+            if (arr.length === 0) return;
+            items.push({ type: SHARE_T_LIST, group: cat, sub: arr.length + '校' });
+        });
+        return items;
+    }
+
+    function renderShareLists() {
+        const box = document.getElementById('share-export-list');
+        if (!box) return;
+        box.innerHTML = '';
+        const items = shareExportItems();
+        if (items.length === 0) {
+            box.innerHTML = '<div class="share-empty">書き出せる名簿がまだありません。</div>';
+            return;
+        }
+        let lastType = '';
+        items.forEach(it => {
+            if (it.type !== lastType) {
+                lastType = it.type;
+                let t = document.createElement('div');
+                t.className = 'share-sec-title';
+                t.innerText = it.type;
+                box.appendChild(t);
+            }
+            let label = document.createElement('label');
+            label.className = 'share-row';
+            let chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.className = 'share-chk';
+            chk.checked = true;
+            chk.value = it.type + SHARE_SEP + it.group;
+            let nameSpan = document.createElement('span');
+            nameSpan.className = 's-name';
+            nameSpan.innerText = it.group;
+            let subSpan = document.createElement('span');
+            subSpan.className = 's-sub';
+            subSpan.innerText = it.sub;
+            label.appendChild(chk); label.appendChild(nameSpan); label.appendChild(subSpan);
+            box.appendChild(label);
+        });
+    }
+
+    function shareCheckAll(on) {
+        document.querySelectorAll('#share-export-list .share-chk').forEach(c => { c.checked = on; });
+    }
+
+    function exportRosterCSV() {
+        const checked = Array.from(document.querySelectorAll('#share-export-list .share-chk:checked'));
+        if (checked.length === 0) return alert('書き出したい名簿にチェックを入れてください。');
+
+        let lines = [SHARE_HEADER];
+        checked.forEach(c => {
+            const idx = c.value.indexOf(SHARE_SEP);
+            const type = c.value.slice(0, idx);
+            const group = c.value.slice(idx + SHARE_SEP.length);
+            if (type === SHARE_T_SCHOOL) {
+                (schoolRosters[group] || []).forEach(p => lines.push(shareRow(type, group, p.n || '', p.nm || '')));
+            } else if (type === SHARE_T_LIST) {
+                (teamPresets[group] || []).forEach(nm => lines.push(shareRow(type, group, '', nm)));
+            }
+        });
+        if (lines.length < 2) return alert('選んだ名簿の中身が空でした。');
+
+        let blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        let d = new Date();
+        a.download = `名簿共有_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function importRosterCSV() {
+        const fileInput = document.getElementById('share-import-file');
+        const file = fileInput.files[0];
+        if (!file) return alert('ファイルを選択してください。');
+        const overwrite = document.getElementById('share-overwrite').checked;
+
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                let text = String(e.target.result).replace(/^﻿/, '');
+                let lines = text.split(/\r\n|\n|\r/);
+                let schoolBuckets = {}, listBuckets = {}, fromSelf = 0;
+
+                lines.forEach((line, i) => {
+                    if (!line.trim()) return;
+                    let v = shareParseLine(line);
+                    if (v.length < 4) return;
+                    let type = v[0], group = v[1], num = v[2], name = v[3];
+                    if (i === 0 && (type === '種別' || type === '')) return;   // ヘッダー行
+                    if (!group) return;
+                    if (type === SHARE_T_SCHOOL || type === SHARE_T_SELF) {
+                        if (!num && !name) return;
+                        if (type === SHARE_T_SELF && !schoolBuckets[group]) fromSelf++;
+                        (schoolBuckets[group] = schoolBuckets[group] || []).push({ n: num, nm: name });
+                    } else if (type === SHARE_T_LIST) {
+                        if (!name) return;
+                        (listBuckets[group] = listBuckets[group] || []).push(name);
+                    }
+                });
+
+                let msg = [], added = 0, updated = 0, skipped = 0;
+
+                // 学校名簿 → 学校ごとの選手表
+                Object.keys(schoolBuckets).forEach(g => {
+                    let exists = Array.isArray(schoolRosters[g]) && schoolRosters[g].length > 0;
+                    if (exists && !overwrite) { skipped++; return; }
+                    schoolRosters[g] = schoolBuckets[g];
+                    if (exists) updated++; else added++;
+                });
+
+                // 対戦校リスト → カテゴリに追加（重複は入れない）
+                let listAdded = 0;
+                Object.keys(listBuckets).forEach(cat => {
+                    if (!Array.isArray(teamPresets[cat])) teamPresets[cat] = [];
+                    listBuckets[cat].forEach(nm => {
+                        if (teamPresets[cat].indexOf(nm) === -1) { teamPresets[cat].push(nm); listAdded++; }
+                    });
+                    teamPresets[cat].sort((a, b) => a.localeCompare(b, 'ja'));
+                });
+
+                if (added + updated + skipped + listAdded === 0) {
+                    document.getElementById('share-import-result').innerText = '取り込める名簿が見つかりませんでした。CSVの形式をご確認ください。';
+                    return;
+                }
+
+                saveSchoolRosters();
+                saveTeamPresets();
+
+                msg.push('取り込みが完了しました（自動保存済み）');
+                if (added)     msg.push('・新しく追加した学校名簿：' + added + '件');
+                if (updated)   msg.push('・上書きした学校名簿：' + updated + '件');
+                if (skipped)   msg.push('・同じ名前があったので残した名簿：' + skipped + '件');
+                if (listAdded) msg.push('・対戦校リストに追加した学校：' + listAdded + '校');
+                if (fromSelf)  msg.push('※ 分析くんの「自チーム名簿」' + fromSelf + '件を、学校名簿として取り込みました。');
+                document.getElementById('share-import-result').innerText = msg.join('\n');
+
+                fileInput.value = '';
+                renderShareLists();
+                renderPlayerButtons();
+            } catch (err) {
+                document.getElementById('share-import-result').innerText = '読み込みに失敗しました。CSVファイルをご確認ください。';
+                console.error(err);
+            }
+        };
+        reader.readAsText(file);
     }
 
     // ==========================================
