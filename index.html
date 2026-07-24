@@ -291,6 +291,24 @@
             table { font-size: 0.8rem; }
             .table-inner-scroll th, .table-inner-scroll td { white-space: nowrap; }
         }
+
+        /* 「記録を終了して次の試合へ」ボタン（安心して押せる緑系） */
+        .btn-next-match {
+            width: 100%;
+            background: linear-gradient(180deg, #fbbf24, #d99e1a);
+            border: 1px solid #fcd34d;
+            color: #042f2e;
+            font-weight: bold;
+            font-size: 0.95rem;
+            padding: 12px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: filter 0.15s;
+        }
+        .btn-next-match:hover { filter: brightness(1.12); }
+        .btn-next-match:active { filter: brightness(0.95); }
     </style>
 </head>
 <body class="theme-self">
@@ -487,6 +505,8 @@
     
     <!-- 右カラム (簡単分析ダッシュボード) -->
     <div class="right-col">
+        <!-- 1試合終わったら、ここから安全に次の試合へ（CSV保存→画面リセット） -->
+        <button class="btn-next-match" onclick="finishAndNextMatch()">記録を終了して、次の試合の記録をする</button>
         <!-- 上段：サマリー情報 -->
         <div class="dashboard-top-row">
             <div class="dashboard-card">
@@ -722,14 +742,15 @@
 <div id="view-info" class="main-container">
     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; padding: 30px;">
         <h1 style="color: var(--accent); margin: 0; font-family: 'Oswald', sans-serif; letter-spacing: 2px; font-size: 2.5rem;">観戦くん by Danno</h1>
-        <div style="color: var(--text-sub); font-size: 1.2rem;">Ver. 1.2.0</div>
+        <div style="color: var(--text-sub); font-size: 1.2rem;">Ver. 1.3.0</div>
         <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; max-width: 520px; line-height: 1.6;">
             分析くん 観戦Ver.（他校 VS 他校の記録用）<br>
             最終更新: 2026-07-24<br><br>
             A校・B校の2チームを選んで記録します。選手ボタンは選んだ学校に自動で連動し、学校ごとに保存されます（未登録の学校は背番号 #2〜#16 を初期表示）。<br>
             記録画面の分析は両チームとも「攻撃側の視点」に統一。得点コースは得点率が高いほど赤く、枠外は本数が多いほど赤く表示されます。<br>
             「名簿共有」タブから、登録した選手名簿・対戦校リストだけをCSVで書き出し／取り込みでき、他の人と共有できます（取り込んだ名簿は自動保存。分析くんとも同じ形式）。取り込んだ学校は対戦校プリセットにも自動で入り、すぐA校/B校として選べます。<br>
-            データは分析くんとは別に保存されます。CSVは集計くんでもそのまま読み込めます。
+            データは分析くんとは別に保存されます。CSVは集計くんでもそのまま読み込めます。<br>
+            記録画面の右上に「記録を終了して、次の試合の記録をする」ボタンを追加。押すと今の試合をCSVに保存してから画面をリセットするので、「全削除」を使わなくても安全に次の試合へ進めます。
         </div>
     </div>
 </div>
@@ -1963,6 +1984,51 @@
             refreshAllViews();
             alert('データを完全にクリアしました。');
         }
+    }
+
+    // 1試合ごとの記録に。こわい「全削除」を使わずに次の試合へ進むためのボタン。
+    // いまの試合の記録をCSVに書き出して保存してから、記録画面をまっさらにする。
+    function finishAndNextMatch() {
+        let allData = JSON.parse(localStorage.getItem('kansen_dashboard_data')) || [];
+        if (allData.length === 0) {
+            alert('まだ記録がありません。\n記録を始めてから、このボタンを使ってください。');
+            return;
+        }
+        let A  = teamAName();
+        let B  = teamBName();
+        let dt = (document.getElementById('match-date').value || '').trim();
+        let card = (A || 'A校') + ' vs ' + (B || 'B校');
+        if (!confirm(
+            'いまの試合の記録をCSVファイルに保存してから、\n記録画面を「次の試合」用にまっさらにします。\n\n' +
+            '　対戦カード：' + card + '\n' +
+            '　試合日：' + (dt || '未設定') + '\n' +
+            '　記録数：' + allData.length + '件\n\n' +
+            '※記録はCSVで保存されるので、あとから見返せます。\n' +
+            'よろしいですか？'
+        )) return;
+
+        // 1) いまの記録をCSVで書き出し（バックアップ。これで消えても安心）
+        exportMatchCSV(allData, dt, card);
+
+        // 2) 画面の記録データをクリア（次の試合と混ざらないように）
+        localStorage.removeItem('kansen_dashboard_data');
+
+        // 3) タイマー・局面・対戦カードを次の試合用にリセット
+        clearInterval(timerInterval);
+        isTimerRunning = false;
+        timerSeconds = 0;
+        document.getElementById('timer-display').innerText = formatTime(timerSeconds);
+        let tbtn = document.getElementById('btn-timer');
+        tbtn.innerText = 'START'; tbtn.classList.remove('running');
+        setPeriod('前半');
+        document.getElementById('teamA-name').value = '';   // A校・B校の選択をクリア
+        document.getElementById('teamB-name').value = '';
+        refreshTeamButtons();
+        refreshTeamLabels();
+        renderPlayerButtons();
+        resetToStep1();
+        refreshAllViews();
+        showNotification('保存しました。次の試合の記録を始められます');
     }
 
     // ==========================================
