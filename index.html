@@ -152,29 +152,6 @@
         .svg-rect { fill: var(--bg-element); stroke: var(--bg-base); stroke-width: 2; cursor: pointer; transition: 0.15s; opacity: 0.8;}
         .svg-rect.active-rect { fill: var(--accent) !important; stroke: white; opacity: 1; }
 
-        /* ==== Ver.3 プレイヤー視点：コース(上)＋コート(下・床を奥に傾ける)。全体を比率保持のまま枠にフィット ==== */
-        .stage-layout-combined { flex-direction: column; gap: 2px; overflow: visible; align-items: center;
-            transform-origin: top center; }
-        .stage-layout-combined > .combined-panel:not(#panel-court-map) { order: 1; }  /* コースを上 */
-        #panel-court-map { order: 2; }                                                /* コートを下 */
-        #step-2 .panel-sub-title { display: none; }                                   /* タイトル削除 */
-        #step-2 .combined-panel { padding: 0; background: transparent; flex: none; width: 100%; align-items: center; }
-        /* ゴール・コートは比率保持（歪ませない）。実サイズはJSで枠に合わせて最大化 */
-        #step-2 .svg-goal-container { max-height: none; width: 100%; max-width: 340px; }
-        /* 傾けたコートは絶対配置。枠(.court-3d)の高さ＝床の“見た目の高さ”にして下の余白を無くす */
-        .court-3d { position: relative; width: 100%; overflow: visible;
-            aspect-ratio: 2.36;
-            perspective: 1100px; perspective-origin: 50% 30%; }
-        #court-map-svg.svg-court-container { position: absolute; top: 0; left: 0; right: 0; margin: 0 auto;
-            max-height: none; width: 100%; max-width: 440px; height: auto; flex: none;
-            transform: rotateX(50deg); transform-origin: 50% 0%; }
-        #court-map-svg .court-text { transform: scaleY(1.5); transform-box: fill-box; transform-origin: center; }
-        /* 入力コートの色をテーマに追従（相手チーム攻撃時は相手色に。緑のままにしない） */
-        #court-map-svg .court-slice { fill: var(--bg-panel); }
-        #court-map-svg .court-slice:hover { fill: var(--bg-element); }
-        #step-2 .grid-buttons { margin-top: 3px !important; width: 100%; display: flex; justify-content: center; }
-        #btn-map-OTHER { width: auto; padding: 5px 16px; font-size: 0.78rem; }
-
         /* 右パネル（ダッシュボード）レイアウト */
         .dashboard-top-row { display: flex; gap: 10px; height: 35%; flex-shrink: 0; }
         .dashboard-card { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; overflow: hidden; flex: 1; }
@@ -444,8 +421,9 @@
                 <div class="stage-layout-combined">
                     <div class="combined-panel" id="panel-court-map">
                         <div class="panel-sub-title">エリア (コートマップ)</div>
-                        <div class="court-3d">
                         <svg viewBox="0 0 400 250" class="svg-court-container" id="court-map-svg">
+                            <rect x="160" y="5" width="80" height="15" fill="none" stroke="#f0a860" stroke-width="3" />
+                            <path d="M 150 90 L 250 90" fill="none" stroke="#2dd4bf" stroke-opacity="0.5" stroke-dasharray="4 4" stroke-width="2" pointer-events="none"/>
                             <path id="slice-LW" d="M 10 20 L 80 20 Q 80 50 90 70 L 20 110 L 10 110 Z" class="court-slice" onclick="selectAreaFromMap('LW', '左サイド')"/>
                             <text x="35" y="60" class="court-text">左サイド</text>
                             <path id="slice-LB" d="M 90 70 Q 110 110 140 110 L 140 170 Q 50 170 20 110 Z" class="court-slice" onclick="selectAreaFromMap('LB', '左45')"/>
@@ -459,18 +437,12 @@
                             <path id="slice-LBL" d="M 10 110 L 20 110 Q 50 170 140 170 L 140 240 L 10 240 Z" class="court-slice" onclick="selectAreaFromMap('LBL', '左45ロング')"/>
                             <text x="75" y="200" class="court-text">左45ロング</text>
                             <path id="slice-CBL" d="M 140 170 L 260 170 L 260 240 L 140 240 Z" class="court-slice" onclick="selectAreaFromMap('CBL', 'センターロング')"/>
-                            <text x="200" y="200" class="court-text" font-size="11">センターロング</text>
+                            <text x="200" y="200" class="court-text">センターロング</text>
                             <path id="slice-RBL" d="M 380 110 L 390 110 L 390 240 L 260 240 L 260 170 Q 350 170 380 110 Z" class="court-slice" onclick="selectAreaFromMap('RBL', '右45ロング')"/>
                             <text x="325" y="200" class="court-text">右45ロング</text>
-                            <!-- ポスト：6mラインの曲線に沿った扇形スライス（5分割・両端はサイドまで延長）。扇形ゾーンには手を加えていない -->
-                            <path id="slice-PVLW" class="court-slice" d="M 80 20 Q 80 50 90 70 L 108 52 Q 104 36 104 20 Z" onclick="selectAreaFromMap('PVLW', 'ポスト')"/>
-                            <path id="slice-PVLB" class="court-slice" d="M 90 70 Q 110 110 140 110 L 150 84 Q 122 84 108 52 Z" onclick="selectAreaFromMap('PVLB', 'ポスト')"/>
-                            <path id="slice-PVCB" class="court-slice" d="M 140 110 L 260 110 L 250 84 L 150 84 Z" onclick="selectAreaFromMap('PVCB', 'ポスト')"/>
-                            <path id="slice-PVRB" class="court-slice" d="M 260 110 Q 290 110 310 70 L 292 52 Q 278 84 250 84 Z" onclick="selectAreaFromMap('PVRB', 'ポスト')"/>
-                            <path id="slice-PVRW" class="court-slice" d="M 320 20 Q 320 50 310 70 L 292 52 Q 296 36 296 20 Z" onclick="selectAreaFromMap('PVRW', 'ポスト')"/>
-                            <text x="200" y="100" class="court-text" font-size="11">ポスト</text>
+                            <ellipse id="slice-PV" cx="200" cy="60" rx="45" ry="20" class="court-slice" onclick="selectAreaFromMap('PV', 'ポスト')"/>
+                            <text x="200" y="60" class="court-text">ポスト</text>
                         </svg>
-                        </div>
                         <div class="grid-buttons" style="margin-top: 8px;">
                             <button class="btn" id="btn-map-OTHER" onclick="selectAreaFromMap('OTHER', 'その他')">その他エリア</button>
                         </div>
@@ -770,11 +742,10 @@
 <div id="view-info" class="main-container">
     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; padding: 30px;">
         <h1 style="color: var(--accent); margin: 0; font-family: 'Oswald', sans-serif; letter-spacing: 2px; font-size: 2.5rem;">観戦くん by Danno</h1>
-        <div style="color: var(--text-sub); font-size: 1.2rem;">Ver. 2.0.0</div>
+        <div style="color: var(--text-sub); font-size: 1.2rem;">Ver. 1.3.0</div>
         <div style="color: var(--text-sub); font-size: 0.8rem; text-align: center; max-width: 520px; line-height: 1.6;">
             分析くん 観戦Ver.（他校 VS 他校の記録用）<br>
-            最終更新: 2026-07-27<br><br>
-            エリア・コース入力を「プレイヤー視点」に一新。ゴール（コース）を上、コート（エリア）を手前に広がる床のように表示し、枠に収まる最大サイズで一括表示します。B校攻撃のときは入力コートもB校側の色になります。<br><br>
+            最終更新: 2026-07-24<br><br>
             A校・B校の2チームを選んで記録します。選手ボタンは選んだ学校に自動で連動し、学校ごとに保存されます（未登録の学校は背番号 #2〜#16 を初期表示）。<br>
             記録画面の分析は両チームとも「攻撃側の視点」に統一。得点コースは得点率が高いほど赤く、枠外は本数が多いほど赤く表示されます。<br>
             「名簿共有」タブから、登録した選手名簿・対戦校リストだけをCSVで書き出し／取り込みでき、他の人と共有できます（取り込んだ名簿は自動保存。分析くんとも同じ形式）。取り込んだ学校は対戦校プリセットにも自動で入り、すぐA校/B校として選べます。<br>
@@ -2281,46 +2252,6 @@
         const dd = String(today.getDate()).padStart(2, '0');
         dateInput.value = `${yyyy}-${mm}-${dd}`;
     }
-
-    // ==========================================
-    // Ver.3：STEP2（コース＋コート）を比率保持のまま枠にフィット（スクロール無し・最大サイズ）
-    // ==========================================
-    function fitStep2() {
-        const step2 = document.getElementById('step-2');
-        if (!step2 || !step2.classList.contains('active')) return;
-        const lc = step2.querySelector('.stage-layout-combined');
-        const stage = document.querySelector('.input-stage');
-        const title = step2.querySelector('.stage-title');
-        const goalPanel = lc && lc.querySelector('.combined-panel:not(#panel-court-map)');
-        const courtSvg = document.getElementById('court-map-svg');
-        const btn = document.getElementById('btn-map-OTHER');
-        if (!lc || !stage || !goalPanel || !courtSvg || !btn) return;
-        lc.style.transform = 'none';                           // いったん等倍で自然サイズを計測
-        const gp = goalPanel.getBoundingClientRect();
-        const cr = courtSvg.getBoundingClientRect();           // 傾いたコートの見た目も含む
-        const brc = btn.getBoundingClientRect();
-        const natTop = gp.top;
-        const natBottom = Math.max(cr.bottom, brc.bottom);
-        const natH = natBottom - natTop;
-        const natW = Math.max(gp.width, cr.width);
-        const availH = stage.clientHeight - (title ? title.getBoundingClientRect().height : 0) - 8;
-        const availW = (lc.parentElement ? lc.parentElement.clientWidth : stage.clientWidth) - 4;
-        if (natH <= 0 || natW <= 0) return;
-        let s = Math.min(availH / natH, availW / natW) * 0.94; // 安全マージン
-        s = Math.max(0.3, Math.min(s, 2.2));                   // 枠に収まる最大まで拡大/縮小
-        lc.style.transform = 'scale(' + s + ')';
-    }
-    window.fitStep2 = fitStep2;
-    window.addEventListener('resize', fitStep2);
-    (function () {
-        const s2 = document.getElementById('step-2');
-        if (s2 && 'MutationObserver' in window) {
-            new MutationObserver(function () {
-                if (s2.classList.contains('active')) requestAnimationFrame(fitStep2);
-            }).observe(s2, { attributes: true, attributeFilter: ['class'] });
-        }
-        window.addEventListener('load', function () { setTimeout(fitStep2, 60); });
-    })();
 </script>
 
 <!-- Service Worker（手動更新・オフライン対応） -->

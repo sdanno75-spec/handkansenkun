@@ -2,7 +2,7 @@
 // このVERSIONを上げると、次回オンライン起動時に
 // アプリ画面に「新しいバージョンがあります」ボタンが出ます。
 // （更新は入力者がボタンを押したときだけ適用されます）
-const VERSION = '2.0.0';
+const VERSION = '1.3.0';
 const CACHE = 'kansenkun-' + VERSION;
 const ASSETS = ['./', './index.html'];
 
